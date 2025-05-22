@@ -18,7 +18,9 @@ torch.set_default_dtype(torch.float64)
 molecule_names = ['H2O']
 
 # Reference of target properties
-targets = {'total_energy': torch.tensor([-3.9840])}
+targets = {'total_energy': torch.tensor([-3.9840]),
+           'q_final_atomic': torch.tensor([6.4648, 0.7676, 0.7676]),
+           'q_final_shells': torch.tensor([1.8891, 4.5757, 0.7676, 0.7676])} 
 
 # Provide information about the orbitals on each atom; this is keyed by atomic
 # numbers and valued by azimuthal quantum numbers like so:
@@ -36,10 +38,10 @@ model = 'spline'
 fit_model = True
 
 # Number of training cycles
-number_of_epochs = 50
+number_of_epochs = 500
 
 # Learning rate
-lr = 0.002
+lr = 0.01
 
 # Loss function
 loss_func = mse_loss
@@ -52,7 +54,7 @@ geometry = Geometry(
         torch.tensor([8,1,1], device=device), 
         torch.tensor([[0.0, -1.0, 0.0],
                      [0.0, 0.0, 0.78306400000],
-                     [0.0, 0.0, -0.78306400000]], requires_grad=True),
+                     [0.0, 0.0, -0.78306400000]]),
                units='angstrom'
                )
 
@@ -73,8 +75,7 @@ h_feed = SkFeed.from_database(parameter_db_path, species, 'hamiltonian',
 print("On sites", h_feed._on_sites)
 
 # Load the overlap feed model
-s_feed = SkFeed.from_database(parameter_db_path, species, 'overlap',
-                              interpolation=CubicSpline)
+s_feed = SkFeed.from_database(parameter_db_path, species, 'overlap', interpolation=CubicSpline)
 
 # Load the occupation feed object
 o_feed = SkfOccupationFeed.from_database(parameter_db_path, species)
@@ -91,6 +92,8 @@ dftb_calculator = Dftb2(h_feed, s_feed, o_feed, u_feed, r_feed, filling_scheme=N
 def prediction_delegate(calculator, targets, **kwargs):
      predictions = dict()
      predictions["energy"] = calculator.total_energy
+     #predictions["q_final_atomic"] = calculator.q_final_atomic
+     predictions["q_final_shells"] = calculator.q_final_shells
      
      return predictions
 
@@ -98,29 +101,35 @@ def prediction_delegate(calculator, targets, **kwargs):
 def reference_delegate(calculator, targets, **kwargs):
      references = dict()
      references["energy"] = targets['total_energy']
+     #references["q_final_atomic"] = targets['q_final_atomic']
+     references["q_final_shells"] = targets['q_final_shells']
 
      return references
 
 # Define parameters to optimize
-torch.manual_seed(4) # Set random seed for reproducibility
+torch.manual_seed(389277) # Set random seed for reproducibility
 print(h_feed._on_sites["1"])
 print(h_feed._on_sites["8"])
+h_feed.named_parameters()
 
-h_feed._on_sites["1"] = - torch.rand_like(h_feed._on_sites["1"])
-h_feed._on_sites["8"] = - torch.rand_like(h_feed._on_sites["8"])
 
-print(h_feed._on_sites["1"])
-print(h_feed._on_sites["8"])
+# Starting values parameters
+with torch.no_grad():
+     h_feed._on_sites["1"] += 0.2 * torch.rand_like(h_feed._on_sites["1"]) - 0.1
+     h_feed._on_sites["8"][0] += 0.2 * torch.rand_like(h_feed._on_sites["8"][0]) - 0.1
+     h_feed._on_sites["8"][1:] += (0.2 * torch.rand(1) - 0.1) * torch.ones_like(h_feed._on_sites["8"][1:])
 
-variable = h_feed._on_sites["1"], h_feed._on_sites["8"]
+variable = [param for name, param in h_feed.named_parameters() if '_on_sites' in name]
 
+print(variable)
 
 # Define the loss entity
 loss_entity = Loss(prediction_delegate, reference_delegate,
                    loss_functions=loss_func, reduction='mean')
 
 # Define optimizer
-optimizer = torch.optim.Adam([variable], lr=lr)
+#optimizer = torch.optim.Adam([variable], lr=lr)
+optimizer = getattr(torch.optim, 'Adam')(params=variable, lr=lr)
 
 # Execution
 loss_list = []
@@ -128,6 +137,12 @@ loss_list.append(0)
 for epoch in range(number_of_epochs):
     _loss = 0
     print('epoch', epoch)
+
+    #setting all p energies to the same value
+
+    with torch.no_grad():
+         h_feed._on_sites["8"][1:] = torch.mean(h_feed._on_sites["8"][1:]) * torch.ones_like(h_feed._on_sites["8"][1:])
+
     dftb_calculator(geometry, orbs, grad_mode="direct")
     total_loss, raw_losses = loss_entity(dftb_calculator, targets)
     _loss = _loss + total_loss
