@@ -47,7 +47,7 @@ class xTBRepulsive(Feed):
             c[0] := Z_A^eff
             c[1] := Z_B^eff
             c[2] := α_A
-            c[2] := α_B
+            c[3] := α_B
     """
 
     def __init__(
@@ -78,8 +78,53 @@ class xTBRepulsive(Feed):
         results = z1 * z2 / distances * torch.exp(-torch.sqrt(a1 * a2) * distances**kf)
 
         return results
+    
+class PTBPRepulsive(Feed):
+     
+    """Repulsive in form of the PTBP-Repulsive.
 
-def pairwise_repulsive(Geometry, alpha, Z):
+    The repulsive is calculated as the follwing form:
+
+    E_rep = (Z_A^eff * Z_B^eff / R_AB) * (1 - erf(R_AB / sqrt(α_A^2 + α_B^2)))
+
+    Arguments:
+        coefficients: List containing import parameter
+            c[0] := Z_A^eff
+            c[1] := Z_B^eff
+            c[2] := α_A
+            c[3] := α_B
+    """
+
+    def __init__(
+            self, coefficients: Parameter):
+
+        super().__init__()
+        self.coefficients = coefficients
+
+    def forward(self, distances: Tensor) -> Tensor:
+        """Evaluate the repulsive interaction at the specified distance(s).
+
+        Arguments:
+            distances: Distance(s) at which the repulsive term is to be
+                evaluated.
+
+        Returns:
+            repulsive: Repulsive interaction energy as evaluated at the
+                specified distances.
+        """
+        results = torch.zeros_like(distances)
+        c = self.coefficients
+        z1 = c[0]
+        z2 = c[1]
+        a1 = c[2]
+        a2 = c[3]
+        gamma = 1 / torch.sqrt(a1**2 + a2**2)
+
+        results = z1 * z2 / distances * (1 - torch.erf(gamma * distances))
+
+        return results
+
+def pairwise_repulsive(Geometry, alpha, Z, Repulsive):
     """
     Delivers input for PairwiseRepulsiveEnergyFeed
 
@@ -89,6 +134,9 @@ def pairwise_repulsive(Geometry, alpha, Z):
                 (with atomic number as key)
         Z: Dictionary contaning element specific effective charge
                 (with atomic number as key)
+        Repulsive: Type of Repulsive to be used. The following options exist:
+            - xTBRepulsive
+            - PTBPRepulsive
 
     Returns:
         A torch `ModuleDict` of pair-wise distance dependent
@@ -101,7 +149,7 @@ def pairwise_repulsive(Geometry, alpha, Z):
     for species_pair, _, _ in atomic_pair_distances(
         Geometry, True, True):
         Dict[str((species_pair[0].item(), species_pair[1].item()))
-             ] = xTBRepulsive([Z[species_pair[0].item()],
+             ] = Repulsive([Z[species_pair[0].item()],
                                Z[species_pair[1].item()],
                                alpha[species_pair[0].item()],
                                alpha[species_pair[1].item()]])
@@ -127,10 +175,15 @@ if __name__ == '__main__':
                units='angstrom'
                )
 
-    H2O_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z)
+    xTB_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, xTBRepulsive)
 
-    H20_total_repulsive = PairwiseRepulsiveEnergyFeed(H2O_pair_repulsive)
+    xTB_total_repulsive = PairwiseRepulsiveEnergyFeed(xTB_pair_repulsive)
 
+    print(xTB_total_repulsive.forward(H2O_geo))
 
-    print(H20_total_repulsive.forward(H2O_geo))
+    PTBP_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, PTBPRepulsive)
+
+    PTBP_total_repulsive = PairwiseRepulsiveEnergyFeed(PTBP_pair_repulsive)
+    
+    print(PTBP_total_repulsive.forward(H2O_geo))
     

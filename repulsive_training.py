@@ -5,7 +5,7 @@ from tbmalt.physics.dftb.feeds import SkFeed, SkfOccupationFeed, HubbardFeed, Pa
 from tbmalt.common.maths.interpolation import CubicSpline
 #from tbmalt.tools.downloaders import download_dftb_parameter_set
 from tbmalt.ml.loss_function import Loss, mse_loss
-from new_feeds import xTBRepulsive, pairwise_repulsive
+from new_feeds import xTBRepulsive, pairwise_repulsive, PTBPRepulsive
 import torch.nn as nn
 from torch.nn import ModuleDict, Parameter
 
@@ -38,7 +38,7 @@ model = 'spline'
 fit_model = True
 
 # Number of training cycles
-number_of_epochs = 500
+number_of_epochs = 100
 
 # Learning rate
 lr = 0.01
@@ -50,13 +50,6 @@ device = torch.device('cpu')
 # Construct the `Geometry` and `OrbitalInfo` objects. The former is analogous
 # to the ase.Atoms object while the latter provides information about what
 # orbitals are present and which atoms they belong to.
-geometry = Geometry(
-        torch.tensor([8,1,1], device=device), 
-        torch.tensor([[0.0, -1.0, 0.0],
-                     [0.0, 0.0, 0.78306400000],
-                     [0.0, 0.0, -0.78306400000]]),
-               units='angstrom'
-               )
 
 geometry = Geometry.from_ase_atoms(list(map(molecule, molecule_names)))
 
@@ -83,21 +76,24 @@ o_feed = SkfOccupationFeed.from_database(parameter_db_path, species)
 # Load the Hubbard-U feed object
 u_feed = HubbardFeed.from_database(parameter_db_path, species)
 
-# Load new rfeed:
+# Initial Parameters for Repulsive
 alpha = {
         1: Parameter(Tensor([1.0]),requires_grad = True),
         6: Parameter(Tensor([1.0]),requires_grad = True),
         8: Parameter(Tensor([1.0]),requires_grad = True)
         }
 
+# Effective charge of cores
 Z = {
         1: Parameter(Tensor([1.0]),requires_grad = True),
         6: Parameter(Tensor([6.0]),requires_grad = True),
         8: Parameter(Tensor([8.0]),requires_grad = True)
     }
 
-H2O_pair_repulsive = pairwise_repulsive(geometry, alpha, Z)
+# Prepare input for r_feed
+H2O_pair_repulsive = pairwise_repulsive(geometry, alpha, Z, PTBPRepulsive)
 
+# Define repulsive
 r_feed = PairwiseRepulsiveEnergyFeed(H2O_pair_repulsive)
 
 dftb_calculator = Dftb2(h_feed, s_feed, o_feed, u_feed, r_feed, filling_scheme=None)
