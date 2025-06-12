@@ -295,12 +295,42 @@ if __name__ == '__main__':
     
     #print(PTBP_total_repulsive.forward(H2O_geo))
 
-    Gamma = DFTBGammaRepulsive([Parameter(Tensor([0.2236]),requires_grad = True),
-                                Parameter(Tensor([7.3724]),requires_grad = True),
-                                Parameter(Tensor([0.2580]),requires_grad = True),
-                                Parameter(Tensor([0.0065]),requires_grad = True)], 
-                                3.0)
+    """
+    Gamma = DFTBGammaRepulsive([Parameter(Tensor([0.2236])),
+                                Parameter(Tensor([0.2236])),
+                                Parameter(Tensor([0.2580])),
+                                Parameter(Tensor([0.2580]))], 
+                                60.0)
+    xTB = xTBRepulsive([Parameter(Tensor([0.2722])),
+                                Parameter(Tensor([0.2722])),
+                                Parameter(Tensor([1.5193])),
+                                Parameter(Tensor([1.5193])), 
+                                1.0], 
+                                60.0)
+    PTBP = PTBPRepulsive([Parameter(Tensor([0.6246])),
+                                Parameter(Tensor([0.6246])),
+                                Parameter(Tensor([0.5649])),
+                                Parameter(Tensor([0.5649]))], 
+                                60.0)
     
-    #print(Gamma.forward(Tensor(torch.arange(0, 5, 0.1))))
+    r = torch.arange(1, 10, 0.1)
     
+    a = Gamma.forward(Tensor(r))
+    b = xTB.forward(Tensor(r))
+    c = PTBP.forward(Tensor(r))
+
+    import matplotlib.pyplot as plt
+    import numpy
+    fig, ax = plt.subplots()
+    ax.plot(r.numpy(), a.detach().numpy(), 'r', label = 'Gamma')
+    ax.plot(r.numpy(), b.detach().numpy(), 'b', label = 'xTB')
+    ax.plot(r.numpy(), c.detach().numpy(), 'g', label = 'PTBP')
+    ax.set_xlabel('distance [bohr]')
+    ax.set_ylabel('repulsive energy [Ha]')
+    ax.set_title('H-H repulsive optimized for a small batch of molecules')
+
+    ax.legend()
+
+    plt.show()
+    """
     
