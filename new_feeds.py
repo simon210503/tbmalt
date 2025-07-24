@@ -201,16 +201,15 @@ class DFTBGammaRepulsive(Feed):
         poly = term1 + term2 + term3 + term4
 
         exp = torch.exp(-a1 * distances)
-        results = 1 / distances - exp * poly
+        results = exp * poly
         return results
     
     def _unequal_gamma(self, distances, a1, a2):
         exp1 = torch.exp(-a1 * distances)
         exp2 = torch.exp(-a2 * distances)
-        term1 = 1 / distances
         term2 = exp1 * self._Gamma(a1, a2, distances)
         term3 = exp2 * self._Gamma(a2, a1, distances)
-        results = term1 - term2 - term3
+        results = term2 + term3
 
         return results
 
@@ -283,11 +282,11 @@ if __name__ == '__main__':
         cutoff[str((species_pair[0].item(), species_pair[1].item()))
                ]= Tensor([5.0])
 
-    xTB_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, xTBRepulsive, cutoff)
+    #xTB_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, xTBRepulsive, cutoff)
 
-    xTB_total_repulsive = PairwiseRepulsiveEnergyFeed(xTB_pair_repulsive)
+    #xTB_total_repulsive = PairwiseRepulsiveEnergyFeed(xTB_pair_repulsive)
 
-    print(xTB_total_repulsive.forward(H2O_geo))
+    #print(xTB_total_repulsive.forward(H2O_geo))
 
     #PTBP_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, PTBPRepulsive)
 
@@ -295,42 +294,48 @@ if __name__ == '__main__':
     
     #print(PTBP_total_repulsive.forward(H2O_geo))
 
-    """
-    Gamma = DFTBGammaRepulsive([Parameter(Tensor([0.2236])),
-                                Parameter(Tensor([0.2236])),
-                                Parameter(Tensor([0.2580])),
-                                Parameter(Tensor([0.2580]))], 
-                                60.0)
-    xTB = xTBRepulsive([Parameter(Tensor([0.2722])),
-                                Parameter(Tensor([0.2722])),
-                                Parameter(Tensor([1.5193])),
-                                Parameter(Tensor([1.5193])), 
+    Gamma = DFTBGammaRepulsive([Parameter(Tensor([13.3824])),
+                                Parameter(Tensor([13.3824])),
+                                Parameter(Tensor([0.0003])),
+                                Parameter(Tensor([0.0003]))], 
+                                5.0)
+    new_Gamma = new_DFTBGammaRepulsive([Parameter(Tensor([12.9432])),
+                                Parameter(Tensor([12.9432])),
+                                Parameter(Tensor([3.2486])),
+                                Parameter(Tensor([3.2486]))], 
+                                5.0)
+    xTB = xTBRepulsive([Parameter(Tensor([13.9299])),
+                                Parameter(Tensor([13.9299])),
+                                Parameter(Tensor([1.1169])),
+                                Parameter(Tensor([1.1169])), 
                                 1.0], 
-                                60.0)
-    PTBP = PTBPRepulsive([Parameter(Tensor([0.6246])),
-                                Parameter(Tensor([0.6246])),
-                                Parameter(Tensor([0.5649])),
-                                Parameter(Tensor([0.5649]))], 
-                                60.0)
+                                5.0)
+    PTBP = PTBPRepulsive([Parameter(Tensor([14.0585])),
+                                Parameter(Tensor([14.0585])),
+                                Parameter(Tensor([1.0697])),
+                                Parameter(Tensor([1.0697]))], 
+                                5.0)
     
-    r = torch.arange(1, 10, 0.1)
+    r = torch.arange(3, 6, 0.1)
     
     a = Gamma.forward(Tensor(r))
     b = xTB.forward(Tensor(r))
     c = PTBP.forward(Tensor(r))
+    d = new_Gamma.forward(Tensor(r))
+    print(c)
 
     import matplotlib.pyplot as plt
     import numpy
     fig, ax = plt.subplots()
     ax.plot(r.numpy(), a.detach().numpy(), 'r', label = 'Gamma')
+    ax.plot(r.numpy(), d.detach().numpy(), 'y', label = 'new_Gamma')
     ax.plot(r.numpy(), b.detach().numpy(), 'b', label = 'xTB')
     ax.plot(r.numpy(), c.detach().numpy(), 'g', label = 'PTBP')
     ax.set_xlabel('distance [bohr]')
     ax.set_ylabel('repulsive energy [Ha]')
-    ax.set_title('H-H repulsive optimized for a small batch of molecules')
+    ax.set_title('Si-Si repulsive optimized for a small batch of defects')
 
     ax.legend()
 
     plt.show()
-    """
     
