@@ -2147,7 +2147,7 @@ class DftbpRepulsiveSpline(Feed):
     only within the specified cutoff radius, being zero beyond this distance.
 
     1. **Short-range exponential head** when distances ≤ first grid point:
-       .. math::
+       .. math:: 
            e^{-a_{1} r + a_{2}} + a_{3}
 
     2. **Intermediate cubic spline body** defined on each interval [r_i, r_{i+1}]:

@@ -5,9 +5,11 @@ from tbmalt.physics.dftb.feeds import SkFeed, SkfOccupationFeed, HubbardFeed, Pa
 from tbmalt.common.maths.interpolation import CubicSpline
 #from tbmalt.tools.downloaders import download_dftb_parameter_set
 from tbmalt.ml.loss_function import Loss, mse_loss
-from new_feeds import xTBRepulsive, pairwise_repulsive, PTBPRepulsive
+from tbmalt.structures.geometry import atomic_pair_distances
+from new_feeds import xTBRepulsive, pairwise_repulsive, PTBPRepulsive, DFTBGammaRepulsive
 import torch.nn as nn
 from torch.nn import ModuleDict, Parameter
+
 
 from ase.build import molecule
 
@@ -38,7 +40,7 @@ model = 'spline'
 fit_model = True
 
 # Number of training cycles
-number_of_epochs = 100
+number_of_epochs = 500
 
 # Learning rate
 lr = 0.01
@@ -79,8 +81,8 @@ u_feed = HubbardFeed.from_database(parameter_db_path, species)
 # Initial Parameters for Repulsive
 alpha = {
         1: Parameter(Tensor([1.0]),requires_grad = True),
-        6: Parameter(Tensor([1.0]),requires_grad = True),
-        8: Parameter(Tensor([1.0]),requires_grad = True)
+        6: Parameter(Tensor([1.01]),requires_grad = True),
+        8: Parameter(Tensor([1.02]),requires_grad = True)
         }
 
 # Effective charge of cores
@@ -90,8 +92,14 @@ Z = {
         8: Parameter(Tensor([8.0]),requires_grad = True)
     }
 
+cutoff = {}
+for species_pair, _, _ in atomic_pair_distances(
+    geometry, True, True):
+    cutoff[str((species_pair[0].item(), species_pair[1].item()))
+            ]= Tensor([5.0])
+ 
 # Prepare input for r_feed
-H2O_pair_repulsive = pairwise_repulsive(geometry, alpha, Z, PTBPRepulsive)
+H2O_pair_repulsive = pairwise_repulsive(geometry, alpha, Z, PTBPRepulsive, cutoff)
 
 # Define repulsive
 r_feed = PairwiseRepulsiveEnergyFeed(H2O_pair_repulsive)
@@ -111,8 +119,6 @@ def reference_delegate(calculator, targets, **kwargs):
      return references
 
 # Define parameters to optimize
-
-# Starting values parameters
 
 variable = list(alpha.values()) + list(Z.values())
 

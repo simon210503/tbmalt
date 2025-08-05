@@ -38,7 +38,7 @@ model = 'spline'
 fit_model = True
 
 # Number of training cycles
-number_of_epochs = 500
+number_of_epochs = 50
 
 # Learning rate
 lr = 0.01
@@ -107,7 +107,7 @@ def reference_delegate(calculator, targets, **kwargs):
      return references
 
 # Define parameters to optimize
-torch.manual_seed(389277) # Set random seed for reproducibility
+torch.manual_seed(324974) # Set random seed for reproducibility
 print(h_feed._on_sites["1"])
 print(h_feed._on_sites["8"])
 h_feed.named_parameters()
@@ -139,9 +139,8 @@ for epoch in range(number_of_epochs):
     print('epoch', epoch)
 
     #setting all p energies to the same value
-
     with torch.no_grad():
-         h_feed._on_sites["8"][1:] = torch.mean(h_feed._on_sites["8"][1:]) * torch.ones_like(h_feed._on_sites["8"][1:])
+         h_feed._on_sites["8"][1:] = torch.mean(h_feed._on_sites["8"][1:]) * torch.ones_like(h_feed._on_sites["8"][1:]) 
 
     dftb_calculator(geometry, orbs, grad_mode="direct")
     total_loss, raw_losses = loss_entity(dftb_calculator, targets)
