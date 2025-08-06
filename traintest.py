@@ -238,7 +238,6 @@ def save_results_to_file(result, file_path):
 
 
 def full_routine64(total_dpoints, seed, max_dpoint, portions):
-    # Initial values
     xTB_alpha = {14: Parameter(torch.tensor([1.0]), requires_grad=True)}
     PTBP_alpha = {14: Parameter(torch.tensor([1.1]), requires_grad=True)}
     Gamma_alpha = {14: Parameter(torch.tensor([3.0]), requires_grad=True)}
@@ -251,6 +250,8 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
     print(dpoints)
 
     for ii in range(5):
+        print(f"\n🔁 Zyklus {ii+1}/5")
+
         testdpoints = dpoints[ii]
         traindpoints = [dp for i, part in enumerate(dpoints) if i != ii for dp in part]
 
@@ -260,6 +261,7 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
         os.makedirs(log_dir, exist_ok=True)
 
         # xTB
+        print("→ Training mit xTBRepulsive")
         results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, Z)
         plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/xTB.png")
         save_results_to_file(results, f"{log_dir}/xTB_result.txt")
@@ -267,6 +269,7 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
         MAE.append(results[11])
 
         # PTBP
+        print("→ Training mit PTBPRepulsive")
         results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, Z)
         plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/PTBP.png")
         save_results_to_file(results, f"{log_dir}/PTBP_result.txt")
@@ -274,6 +277,7 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
         MAE.append(results[11])
 
         # Gamma
+        print("→ Training mit DFTBGammaRepulsive")
         results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Z)
         plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/Gamma.png")
         save_results_to_file(results, f"{log_dir}/Gamma_result.txt")
@@ -281,6 +285,7 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
         MAE.append(results[11])
 
         # Testmodel: pbc
+        print("→ Test mit Modell: pbc")
         mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'pbc', xTB_alpha, Z)
         plot_formation_energies(target, model, filepath=f"{split_dir}/pbc.png")
         save_results_to_file([mse, mae, target, model], f"{log_dir}/pbc_result.txt")
@@ -288,15 +293,14 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
         MAE.append(mae)
 
         # Testmodel: siband
+        print("→ Test mit Modell: siband")
         mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'siband', xTB_alpha, Z)
         plot_formation_energies(target, model, filepath=f"{split_dir}/siband.png")
         save_results_to_file([mse, mae, target, model], f"{log_dir}/siband_result.txt")
 
     return MSE, MAE
 
-
 def full_routine512(total_dpoints, seed, max_dpoint, portions):
-    # Initial values
     xTB_alpha = {14: Parameter(torch.tensor([1.0]), requires_grad=True)}
     PTBP_alpha = {14: Parameter(torch.tensor([1.1]), requires_grad=True)}
     Gamma_alpha = {14: Parameter(torch.tensor([3.0]), requires_grad=True)}
@@ -312,42 +316,42 @@ def full_routine512(total_dpoints, seed, max_dpoint, portions):
     os.makedirs(split_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-    # xTB
+    print("→ Training mit xTBRepulsive")
     results = train64test512(datapoints, xTBRepulsive, xTB_alpha, Z)
     plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/xTB.png")
     save_results_to_file(results, f"{log_dir}/xTB_result.txt")
     MSE.append(results[10])
     MAE.append(results[11])
 
-    # PTBP
+    print("→ Training mit PTBPRepulsive")
     results = train64test512(datapoints, PTBPRepulsive, PTBP_alpha, Z)
     plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/PTBP.png")
     save_results_to_file(results, f"{log_dir}/PTBP_result.txt")
     MSE.append(results[10])
     MAE.append(results[11])
 
-    # Gamma
+    print("→ Training mit DFTBGammaRepulsive")
     results = train64test512(datapoints, DFTBGammaRepulsive, Gamma_alpha, Z)
     plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/Gamma.png")
     save_results_to_file(results, f"{log_dir}/Gamma_result.txt")
     MSE.append(results[10])
     MAE.append(results[11])
 
-    # Testmodel: pbc
     testdpoints = [1, 2, 3, 4, 5, 6]
+
+    print("→ Test mit Modell: pbc")
     mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'pbc', xTB_alpha, Z)
     plot_formation_energies(target, model, filepath=f"{split_dir}/pbc.png")
     save_results_to_file([mse, mae, target, model], f"{log_dir}/pbc_result.txt")
     MSE.append(mse)
     MAE.append(mae)
 
-    # Testmodel: siband
+    print("→ Test mit Modell: siband")
     mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'siband', xTB_alpha, Z)
     plot_formation_energies(target, model, filepath=f"{split_dir}/siband.png")
     save_results_to_file([mse, mae, target, model], f"{log_dir}/siband_result.txt")
 
     return MSE, MAE
-
 
 
 def plot_errors_bar64(errors, metric_name="MSE", filepath="plots/errors_bar.png"):
@@ -432,7 +436,7 @@ def load_results_from_file(file_path):
 
 
 if __name__ == "__main__":
-    total_dpoints = 10
+    total_dpoints = 1000
     seed = 1234
     max_dpoint = 1000
     portions = 5
@@ -451,9 +455,9 @@ if __name__ == "__main__":
     #save_results_to_file(results, 'res.txt')
     #load_results_from_file(results, 'res.txt')
     #train64test512(traindpoints, repulsive_model, xTB_alpha, custom_Z)
-    #MSE, MAE = full_routine64(total_dpoints, seed, max_dpoint, portions)
-    #plot_errors_bar64(MSE, metric_name='MSE', filepath = "plots/MSE64.png")
-    #plot_errors_bar64(MAE, metric_name='MAE', filepath = "plots/MAE64.png")
+    MSE, MAE = full_routine64(total_dpoints, seed, max_dpoint, portions)
+    plot_errors_bar64(MSE, metric_name='MSE', filepath = "plots/MSE64.png")
+    plot_errors_bar64(MAE, metric_name='MAE', filepath = "plots/MAE64.png")
     MSE, MAE = full_routine512(total_dpoints, seed, max_dpoint, portions)
     plot_errors_512(MSE, metric_name='MSE', filepath = "plots/MSE512.png")
     plot_errors_512(MAE, metric_name='MAE', filepath = "plots/MAE512.png")

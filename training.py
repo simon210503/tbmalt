@@ -72,7 +72,7 @@ def prepare_system(
     if Z is None:
         Z = {14: Parameter(Tensor([14.0]), requires_grad=True)}
 
-    cutoff = Tensor([5.0])
+    cutoff = Tensor([8.0]) #5 first; 8 second; 11 third neighbour included
     cutoff_rep = {'(14, 14)': cutoff}
 
     if repulsive_model == 'pbc':
