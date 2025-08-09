@@ -146,6 +146,106 @@ def train64test512(training_dpoints, repulsive_model, initial_alpha, initial_Z):
         MAE
     ]
 
+import os
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+
+def get_atom_count_from_gen(filepath):
+    with open(filepath, "r") as f:
+        first_line = f.readline().strip()
+    return int(first_line.split()[0])
+
+def plot_formation_energies_new(
+    datapoints,
+    genfiles_path,
+    target_test,
+    model_test,
+    target_train=None,
+    model_train=None,
+    filepath="plots/formation_energy_plot.png"
+):
+    def to_numpy(x):
+        if x is None:
+            return np.array([])
+        if isinstance(x, torch.Tensor):
+            return x.detach().cpu().numpy()
+        elif isinstance(x, list):
+            return np.array(x)
+        elif isinstance(x, np.ndarray):
+            return x
+        else:
+            raise TypeError(f"Unsupported data type: {type(x)}")
+
+    target_train_np = to_numpy(target_train)
+    model_train_np = to_numpy(model_train)
+    target_test_np = to_numpy(target_test)
+    model_test_np = to_numpy(model_test)
+
+    if target_test_np.size == 0:
+        print("Warnung: Keine Testdaten zum Plotten vorhanden. Der Plot wird nicht gespeichert.")
+        return
+
+    atom_counts_test = [get_atom_count_from_gen(f"{genfiles_path}/datapoint{dp}.gen") for dp in datapoints]
+    atom_counts_train = []
+    if target_train_np.size > 0:
+        atom_counts_train = [get_atom_count_from_gen(f"{genfiles_path}/datapoint{dp}.gen") for dp in datapoints]
+
+    plt.figure(figsize=(6, 6))
+
+    unique_atom_counts = sorted(set(atom_counts_train + atom_counts_test))
+
+    colors = ['red', 'blue', 'green']  # deutliche Farben
+    markers = ['o', 's', '^']  # Kreis, Quadrat, Dreieck
+
+    color_map = {atom_num: colors[i] for i, atom_num in enumerate(unique_atom_counts)}
+    marker_map = {atom_num: markers[i] for i, atom_num in enumerate(unique_atom_counts)}
+
+    # Dummy-Punkte nur für die Legende (unsichtbar außerhalb des Bereichs)
+    for atom_num in unique_atom_counts:
+        plt.scatter([], [], color=color_map[atom_num], marker=marker_map[atom_num], label=str(atom_num), edgecolor='k')
+
+    # Trainingspunkte plotten (ohne Label)
+    if target_train_np.size > 0:
+        for atom_num in unique_atom_counts:
+            idx_train = [i for i, a in enumerate(atom_counts_train) if a == atom_num]
+            if idx_train:
+                plt.scatter(
+                    target_train_np[idx_train],
+                    model_train_np[idx_train],
+                    color=color_map[atom_num],
+                    marker=marker_map[atom_num],
+                    alpha=0.7,
+                    edgecolor="k",
+                )
+    # Testpunkte plotten (ohne Label)
+    for atom_num in unique_atom_counts:
+        idx_test = [i for i, a in enumerate(atom_counts_test) if a == atom_num]
+        if idx_test:
+            plt.scatter(
+                target_test_np[idx_test],
+                model_test_np[idx_test],
+                color=color_map[atom_num],
+                marker=marker_map[atom_num],
+                alpha=0.7,
+                edgecolor="k",
+            )
+
+    all_targets = np.concatenate([target_train_np, target_test_np])
+    if all_targets.size > 0:
+        min_val, max_val = all_targets.min(), all_targets.max()
+        plt.plot([min_val, max_val], [min_val, max_val], color="black", linestyle="--", linewidth=1)
+
+    plt.xlabel("Target Formation Energy")
+    plt.ylabel("Model Formation Energy")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.legend(fontsize=9)
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    plt.savefig(filepath, dpi=300)
+    plt.close()
+
 
 def plot_formation_energies(
     target_test,
@@ -221,36 +321,56 @@ def save_results_to_file(result, file_path):
 
 
 import os
-import torch
-from torch.nn import Parameter
 
-def save_results_to_file(result, file_path):
+def save_results_to_directory(results_list, directory):
+    os.makedirs(directory, exist_ok=True)
+    for idx, item in enumerate(results_list):
+        file_path = os.path.join(directory, f"result_{idx}.txt")
+        with open(file_path, "w") as f:
+            f.write(repr(item))
+
+
+
+
+def load_results_from_file(filepath):
     """
-    Save the output of train64test64() or test_model() to a text file in a human-readable format.
-    
-    Args:
-        result (any): The result object to save.
-        file_path (str): Path to the file where the result will be saved.
+    Lädt die Ergebnisse zeilenweise aus der Datei.
+    Für sichere Datentypen wird ast.literal_eval verwendet.
+    Für komplexe Typen (z. B. Tensor, Geometry, Parameter) wird der Text als String zurückgegeben.
     """
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'w') as f:
-        f.write(repr(result))
+    import ast
+
+    results = []
+    with open(filepath, 'r') as f:
+        for line in f:
+            stripped = line.strip()
+            try:
+                results.append(ast.literal_eval(stripped))
+            except Exception:
+                # fallback: als roher String speichern
+                results.append(stripped)
+    return results
+
 
 
 def full_routine64(total_dpoints, seed, max_dpoint, portions):
-    xTB_alpha = {14: Parameter(torch.tensor([1.0]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.1]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([3.0]), requires_grad=True)}
-    Z = {14: Parameter(torch.tensor([14.0]), requires_grad=True)}
-
+    from torch.nn import Parameter
     MSE = []
     MAE = []
     datapoints = select_random_datapoints(total_dpoints, seed, max_dpoint)
     dpoints = split_data(datapoints, portions)
+    genfilepath = 'geometries'
     print(dpoints)
 
     for ii in range(5):
         print(f"\n🔁 Zyklus {ii+1}/5")
+
+        xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
+        PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
+        Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
+        xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
+        PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
+        Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
 
         testdpoints = dpoints[ii]
         traindpoints = [dp for i, part in enumerate(dpoints) if i != ii for dp in part]
@@ -262,52 +382,87 @@ def full_routine64(total_dpoints, seed, max_dpoint, portions):
 
         # xTB
         print("→ Training mit xTBRepulsive")
-        results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, Z)
-        plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/xTB.png")
-        save_results_to_file(results, f"{log_dir}/xTB_result.txt")
+        results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, xTB_Z)
+        plot_formation_energies_new(
+            datapoints=testdpoints,
+            genfiles_path=genfilepath,
+            target_test=results[4],
+            model_test=results[5],
+            filepath=f"{split_dir}/xTB.png"
+        )
+        save_results_to_directory(results, f"{log_dir}/xTB_result")
         MSE.append(results[10])
         MAE.append(results[11])
 
         # PTBP
         print("→ Training mit PTBPRepulsive")
-        results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, Z)
-        plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/PTBP.png")
-        save_results_to_file(results, f"{log_dir}/PTBP_result.txt")
+        results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z)
+        plot_formation_energies_new(
+            datapoints=testdpoints,
+            genfiles_path=genfilepath,
+            target_test=results[4],
+            model_test=results[5],
+            filepath=f"{split_dir}/PTBP.png"
+        )
+        save_results_to_directory(results, f"{log_dir}/PTBP_result")
         MSE.append(results[10])
         MAE.append(results[11])
 
         # Gamma
         print("→ Training mit DFTBGammaRepulsive")
-        results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Z)
-        plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/Gamma.png")
-        save_results_to_file(results, f"{log_dir}/Gamma_result.txt")
+        results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z)
+        plot_formation_energies_new(
+            datapoints=testdpoints,
+            genfiles_path=genfilepath,
+            target_test=results[4],
+            model_test=results[5],
+            filepath=f"{split_dir}/Gamma.png"
+        )
+        save_results_to_directory(results, f"{log_dir}/Gamma_result")
         MSE.append(results[10])
         MAE.append(results[11])
 
         # Testmodel: pbc
         print("→ Test mit Modell: pbc")
-        mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'pbc', xTB_alpha, Z)
-        plot_formation_energies(target, model, filepath=f"{split_dir}/pbc.png")
-        save_results_to_file([mse, mae, target, model], f"{log_dir}/pbc_result.txt")
+        mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'pbc', xTB_alpha, xTB_Z)
+        plot_formation_energies_new(
+            datapoints=testdpoints,
+            genfiles_path=genfilepath,
+            target_test=target,
+            model_test=model,
+            filepath=f"{split_dir}/pbc.png"
+        )
+        save_results_to_directory([mse, mae, target, model], f"{log_dir}/pbc_result")
         MSE.append(mse)
         MAE.append(mae)
 
         # Testmodel: siband
         print("→ Test mit Modell: siband")
-        mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'siband', xTB_alpha, Z)
-        plot_formation_energies(target, model, filepath=f"{split_dir}/siband.png")
-        save_results_to_file([mse, mae, target, model], f"{log_dir}/siband_result.txt")
+        mse, mae, target, model = test_model('dft.hdf5', testdpoints, 'siband', xTB_alpha, xTB_Z)
+        plot_formation_energies_new(
+            datapoints=testdpoints,
+            genfiles_path=genfilepath,
+            target_test=target,
+            model_test=model,
+            filepath=f"{split_dir}/siband.png"
+        )
+        save_results_to_directory([mse, mae, target, model], f"{log_dir}/siband_result")
 
     return MSE, MAE
 
+
 def full_routine512(total_dpoints, seed, max_dpoint, portions):
-    xTB_alpha = {14: Parameter(torch.tensor([1.0]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.1]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([3.0]), requires_grad=True)}
-    Z = {14: Parameter(torch.tensor([14.0]), requires_grad=True)}
+    from torch.nn import Parameter
+    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
 
     MSE = []
     MAE = []
+    genfilepath = 'genfiles512'
     datapoints = select_random_datapoints(total_dpoints, seed, max_dpoint)
     print(datapoints)
 
@@ -317,41 +472,72 @@ def full_routine512(total_dpoints, seed, max_dpoint, portions):
     os.makedirs(log_dir, exist_ok=True)
 
     print("→ Training mit xTBRepulsive")
-    results = train64test512(datapoints, xTBRepulsive, xTB_alpha, Z)
-    plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/xTB.png")
-    save_results_to_file(results, f"{log_dir}/xTB_result.txt")
+    results = train64test512(datapoints, xTBRepulsive, xTB_alpha, xTB_Z)
+    plot_formation_energies_new(
+        datapoints=[1, 2, 3, 4, 5, 6],
+        genfiles_path=genfilepath,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/xTB.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/xTB_result")
     MSE.append(results[10])
     MAE.append(results[11])
 
     print("→ Training mit PTBPRepulsive")
-    results = train64test512(datapoints, PTBPRepulsive, PTBP_alpha, Z)
-    plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/PTBP.png")
-    save_results_to_file(results, f"{log_dir}/PTBP_result.txt")
+    results = train64test512(datapoints, PTBPRepulsive, PTBP_alpha, PTBP_Z)
+    plot_formation_energies_new(
+        datapoints=[1, 2, 3, 4, 5, 6],
+        genfiles_path=genfilepath,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/PTBP.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/PTBP_result")
     MSE.append(results[10])
     MAE.append(results[11])
 
     print("→ Training mit DFTBGammaRepulsive")
-    results = train64test512(datapoints, DFTBGammaRepulsive, Gamma_alpha, Z)
-    plot_formation_energies(results[4], results[5], filepath=f"{split_dir}/Gamma.png")
-    save_results_to_file(results, f"{log_dir}/Gamma_result.txt")
+    results = train64test512(datapoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z)
+    plot_formation_energies_new(
+        datapoints=[1, 2, 3, 4, 5, 6],
+        genfiles_path=genfilepath,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/Gamma.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/Gamma_result")
     MSE.append(results[10])
     MAE.append(results[11])
 
     testdpoints = [1, 2, 3, 4, 5, 6]
 
     print("→ Test mit Modell: pbc")
-    mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'pbc', xTB_alpha, Z)
-    plot_formation_energies(target, model, filepath=f"{split_dir}/pbc.png")
-    save_results_to_file([mse, mae, target, model], f"{log_dir}/pbc_result.txt")
+    mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'pbc', xTB_alpha, xTB_Z)
+    plot_formation_energies_new(
+        datapoints=testdpoints,
+        genfiles_path=genfilepath,
+        target_test=target,
+        model_test=model,
+        filepath=f"{split_dir}/pbc.png"
+    )
+    save_results_to_directory([mse, mae, target, model], f"{log_dir}/pbc_result")
     MSE.append(mse)
     MAE.append(mae)
 
     print("→ Test mit Modell: siband")
-    mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'siband', xTB_alpha, Z)
-    plot_formation_energies(target, model, filepath=f"{split_dir}/siband.png")
-    save_results_to_file([mse, mae, target, model], f"{log_dir}/siband_result.txt")
+    mse, mae, target, model = test_model('dft_test.hdf5', testdpoints, 'siband', xTB_alpha, xTB_Z)
+    plot_formation_energies_new(
+        datapoints=testdpoints,
+        genfiles_path=genfilepath,
+        target_test=target,
+        model_test=model,
+        filepath=f"{split_dir}/siband.png"
+    )
+    save_results_to_directory([mse, mae, target, model], f"{log_dir}/siband_result")
 
     return MSE, MAE
+
 
 
 def plot_errors_bar64(errors, metric_name="MSE", filepath="plots/errors_bar.png"):
@@ -418,33 +604,13 @@ def plot_errors_512(errors, metric_name="MSE", filepath="plots/errors/512_bar.pn
 
 
 
-def load_results_from_file(file_path):
-    """
-    Load the saved result from a file and return it as a Python object.
-
-    Args:
-        file_path (str): Path to the file from which to load the result.
-
-    Returns:
-        list: The same structure as returned by train64test64.
-    """
-    with open(file_path, 'r') as f:
-        content = f.read()
-        result = ast.literal_eval(content)  # Safe parsing of Python literals
-    return result
-
-
-
 if __name__ == "__main__":
-    total_dpoints = 1000
-    seed = 1234
-    max_dpoint = 1000
+    total_dpoints = 10
+    seed = 832478
+    max_dpoint = 6306
     portions = 5
     repulsive_model = xTBRepulsive
-    xTB_alpha = {14: Parameter(torch.tensor([1.0]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.1]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([3.0]), requires_grad=True)}
-    custom_Z = {14: Parameter(torch.tensor([14.0]), requires_grad=True)}
+
 
     datapoints = select_random_datapoints(total_dpoints, seed, max_dpoint)
     dpoints = split_data(datapoints, portions)
