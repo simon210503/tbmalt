@@ -299,11 +299,6 @@ if __name__ == '__main__':
                                 Parameter(Tensor([0.0003])),
                                 Parameter(Tensor([0.0003]))], 
                                 5.0)
-    new_Gamma = new_DFTBGammaRepulsive([Parameter(Tensor([12.9432])),
-                                Parameter(Tensor([12.9432])),
-                                Parameter(Tensor([3.2486])),
-                                Parameter(Tensor([3.2486]))], 
-                                5.0)
     xTB = xTBRepulsive([Parameter(Tensor([13.9299])),
                                 Parameter(Tensor([13.9299])),
                                 Parameter(Tensor([1.1169])),
@@ -321,14 +316,12 @@ if __name__ == '__main__':
     a = Gamma.forward(Tensor(r))
     b = xTB.forward(Tensor(r))
     c = PTBP.forward(Tensor(r))
-    d = new_Gamma.forward(Tensor(r))
     print(c)
 
     import matplotlib.pyplot as plt
     import numpy
     fig, ax = plt.subplots()
     ax.plot(r.numpy(), a.detach().numpy(), 'r', label = 'Gamma')
-    ax.plot(r.numpy(), d.detach().numpy(), 'y', label = 'new_Gamma')
     ax.plot(r.numpy(), b.detach().numpy(), 'b', label = 'xTB')
     ax.plot(r.numpy(), c.detach().numpy(), 'g', label = 'PTBP')
     ax.set_xlabel('distance [bohr]')

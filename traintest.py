@@ -605,7 +605,7 @@ def plot_errors_512(errors, metric_name="MSE", filepath="plots/errors/512_bar.pn
 
 
 if __name__ == "__main__":
-    total_dpoints = 10
+    total_dpoints = 1000
     seed = 832478
     max_dpoint = 6306
     portions = 5

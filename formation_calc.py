@@ -41,7 +41,10 @@ def calc_reference_formation_energies(sample_path, datapoints):
     return formation_energy
 
 def calc_elec_energies_dset(sample_path1, sample_path2, datapoints):
-    dft_energy = calc_reference_formation_energies(sample_path1, datapoints)
+    f = h5py.File(sample_path1, 'r')
+    data = [f[f'fnetdata/dataset/datapoint{num}'] for num in datapoints]
+    all_targets_np = np.array([d['targets'] for d in data])
+    dft_energy = torch.from_numpy(all_targets_np).flatten() * energy_units['ev']
 
     f = h5py.File(sample_path2, 'r')
     data = [f[f'fnetdata/dataset/datapoint{num}'] for num in datapoints]

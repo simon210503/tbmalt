@@ -12,7 +12,8 @@ from formation_calc import (
     select_random_datapoints,
     load_Geo_dset,
     calc_reference_formation_energies,
-    get_energies_from_file
+    get_energies_from_file,
+    calc_elec_energies_dset
 )
 from si64pos import fractional_positions
 
@@ -54,9 +55,9 @@ def prepare_system(
     Geodset = load_Geo_dset(sample_path, datapoints)
     formation_energy = calc_reference_formation_energies(sample_path, datapoints)
     if sample_path == 'dft.hdf5':
-        elec_energy_defects = get_energies_from_file(datapoints)
+        elec_energy_defects = calc_elec_energies_dset('dft.hdf5', 'dft_dftb_elecen_siband.hdf5', datapoints)
     elif sample_path == 'dft_test.hdf5':
-        elec_energy_defects = get_energies_from_file(datapoints, 'electronic_energies_512.txt')
+        elec_energy_defects = calc_elec_energies_dset('dft_test.hdf5', 'dft_dftb_elecen_siband_test.hdf5', datapoints)
     elec_energy_Si64 = -88.2635544138  # Referenzwert
 
     GeoSi64 = Geometry(
@@ -122,13 +123,13 @@ def train_model(
     sample_path: str,
     datapoints: list[int],
     lr: float = 0.05,
-    epochs: int = 500,
+    epochs: int = 1000,
     device: torch.device = torch.device('cpu'),
     repulsive_model=DFTBGammaRepulsive,
     alpha: dict = None,
     Z: dict = None,
     early_stopping: bool = True,
-    patience: int = 10,
+    patience: int = 5,
     min_delta: float = 1e-6
 ):
     # Vorbereitung mit extern übergebenen alpha/Z
