@@ -486,7 +486,7 @@ def full_routine_atomcount_train(
     plot_repulsives_relaxed_w_distances(log_dir, save_dir)
 
 if __name__ == "__main__":
-    total_dpoints = 1000
+    total_dpoints = 6306
     seed = 3648295765
     max_dpoint = 6306
     portions = 5
@@ -497,6 +497,6 @@ if __name__ == "__main__":
     #dpoints = split_data(datapoints, portions)
     #testdpoints = dpoints[0]
     #traindpoints = [dp for i, part in enumerate(dpoints) if i != 0 for dp in part]
-    full_routine64(total_dpoints, seed, max_dpoint, portions, weight = False)
-    full_routine512(total_dpoints, seed, max_dpoint, weight = False)
+    full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
+    full_routine512(total_dpoints, seed, max_dpoint, weight = True)
     #full_routine_atomcount_train(100, 100, 82314897, False, 64)
