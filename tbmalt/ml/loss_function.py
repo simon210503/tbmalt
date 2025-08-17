@@ -19,7 +19,7 @@ def l1_loss(prediction: Tensor, reference: Tensor, weights: Optional[Tensor] = N
             reduction: Optional[str] = None) -> Tensor:
     """
     Calculates the L1 loss (also known as absolute error) between the prediction and the reference.
-
+    If weights are provided, computes a weighted mean.
     Args:
     - prediction (torch.Tensor): The predicted values.
     - reference (torch.Tensor): The actual values to compare against.
@@ -29,13 +29,17 @@ def l1_loss(prediction: Tensor, reference: Tensor, weights: Optional[Tensor] = N
     Returns:
     - torch.Tensor: The calculated L1 loss.
     """
-    weights = weights if weights is not None else 1.0
+    if weights is None:
+        weights = torch.ones_like(prediction, device=prediction.device)
     reduction = reduction if reduction is not None else 'mean'
 
     if reduction == 'mean':
-        loss = torch.abs((prediction - reference) * weights).mean()
+        loss = (torch.abs(prediction - reference) * weights).sum() / weights.sum()
     elif reduction == 'sum':
-        loss = torch.abs((prediction - reference) * weights).sum()
+        loss = (torch.abs(prediction - reference) * weights).sum()
+    else:
+        raise ValueError(f"Unknown reduction method: {reduction}")
+
     return loss
 
 
@@ -53,11 +57,12 @@ def mse_loss(prediction: Tensor, reference: Tensor, weights: Optional[Tensor] = 
     Returns:
     - torch.Tensor: The calculated L1 loss.
     """
-    weights = weights if weights is not None else 1.0
+    if weights is None:
+        weights = torch.ones_like(prediction, device=prediction.device)
     reduction = reduction if reduction is not None else 'mean'
 
     if reduction == 'mean':
-        loss = ((prediction - reference) ** 2 * weights).mean()
+        loss = ((prediction - reference) ** 2 * weights).sum() / weights.sum()
     elif reduction == 'sum':
         loss = ((prediction - reference) ** 2 * weights).sum()
     return loss

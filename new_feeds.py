@@ -1,28 +1,9 @@
-from __future__ import annotations
-import warnings
-import re
-import numpy as np
-from numpy import ndarray as Array
-from itertools import combinations_with_replacement
-from typing import List, Literal, Optional, Dict, Tuple, Union, Type
-from scipy.interpolate import CubicSpline as ScipyCubicSpline
 import torch
 from torch import Tensor
-from torch.nn import Parameter, ParameterDict, ModuleDict, Module
+from torch.nn import Parameter, ModuleDict
 
-from tbmalt import Geometry, OrbitalInfo, Periodicity
 from tbmalt.structures.geometry import atomic_pair_distances
-from tbmalt.ml.integralfeeds import IntegralFeed
-from tbmalt.io.skf import Skf, VCRSkf
-from tbmalt.physics.dftb.slaterkoster import sub_block_rot
-from tbmalt.data.elements import chemical_symbols
 from tbmalt.ml import Feed
-from tbmalt.common.batch import pack, prepeat_interleave, bT, bT2
-from tbmalt.common.maths.interpolation import PolyInterpU, BicubInterpSpl
-from tbmalt.common.maths.interpolation import CubicSpline
-from tbmalt.common import unique
-from tbmalt.physics.dftb.feeds import PairwiseRepulsiveEnergyFeed
-
 
 
 class xTBRepulsive(Feed):
@@ -43,7 +24,7 @@ class xTBRepulsive(Feed):
     - k_f: Empirical exponent controlling the distance dependence of the repulsion
 
     Arguments:
-        coefficients: List containing import parameter
+        coefficients: List containing important parameters
             c[0] := Z_A^eff
             c[1] := Z_B^eff
             c[2] := α_A
@@ -55,21 +36,19 @@ class xTBRepulsive(Feed):
 
     def __init__(
             self, coefficients: Parameter, cutoff: Tensor):
-
+        """Initialize the xTB repulsive potential module."""
         super().__init__()
         self.coefficients = coefficients
         self.cutoff = cutoff
 
     def forward(self, distances: Tensor) -> Tensor:
-        """Evaluate the repulsive interaction at the specified distance(s).
+        """Evaluate the repulsive interaction energy.
 
         Arguments:
-            distances: Distance(s) at which the repulsive term is to be
-                evaluated.
+            distances: Distance(s) at which the repulsive term is evaluated.
 
         Returns:
-            repulsive: Repulsive interaction energy as evaluated at the
-                specified distances.
+            Repulsive interaction energy tensor at the specified distances.
         """
         results = torch.zeros_like(distances)
         c = self.coefficients
@@ -84,16 +63,39 @@ class xTBRepulsive(Feed):
 
         return results
     
+    def derivative(self, distances: Tensor) -> Tensor:
+        """Evaluate the analytic derivative of the repulsive interaction.
+
+        Arguments:
+            distances: Distance(s) at which the derivative is evaluated.
+
+        Returns:
+            Derivative of the repulsive interaction energy.
+        """
+        results = torch.zeros_like(distances)
+        c = self.coefficients
+        z1 = c[0]
+        z2 = c[1]
+        a1 = c[2]
+        a2 = c[3]
+        kf = c[4]
+
+        V = self.forward(distances)
+        results = V * (-1 / distances - kf * distances**(kf-1) * torch.sqrt(a1 * a2))
+
+        return results
+
+    
 class PTBPRepulsive(Feed):
      
     """Repulsive in form of the PTBP-Repulsive.
 
-    The repulsive is calculated as the follwing form:
+    The repulsive is calculated as:
 
-    E_rep = (Z_A^eff * Z_B^eff / R_AB) * (1 - erf(R_AB / sqrt(α_A^2 + α_B^2)))
+        E_rep = (Z_A^eff * Z_B^eff / R_AB) * (1 - erf(R_AB / sqrt(α_A^2 + α_B^2)))
 
     Arguments:
-        coefficients: List containing import parameter
+        coefficients: List containing important parameters
             c[0] := Z_A^eff
             c[1] := Z_B^eff
             c[2] := α_A
@@ -104,21 +106,19 @@ class PTBPRepulsive(Feed):
 
     def __init__(
             self, coefficients: Parameter, cutoff: Tensor):
-
+        """Initialize the PTBP repulsive potential module."""
         super().__init__()
         self.coefficients = coefficients
         self.cutoff = cutoff
 
     def forward(self, distances: Tensor) -> Tensor:
-        """Evaluate the repulsive interaction at the specified distance(s).
+        """Evaluate the repulsive interaction energy.
 
         Arguments:
-            distances: Distance(s) at which the repulsive term is to be
-                evaluated.
+            distances: Distance(s) at which the repulsive term is evaluated.
 
         Returns:
-            repulsive: Repulsive interaction energy as evaluated at the
-                specified distances.
+            Repulsive interaction energy tensor at the specified distances.
         """
         results = torch.zeros_like(distances)
         c = self.coefficients
@@ -133,14 +133,47 @@ class PTBPRepulsive(Feed):
 
         return results
     
+    def derivative(self, distances: Tensor) -> Tensor:
+        """Evaluate the analytic derivative of the PTBP repulsive interaction.
+
+        Arguments:
+            distances: Distance(s) at which the derivative is evaluated.
+
+        Returns:
+            Derivative of the PTBP repulsive interaction energy.
+        """
+        results = torch.zeros_like(distances)
+        c = self.coefficients
+        z1 = c[0]
+        z2 = c[1]
+        a1 = c[2]
+        a2 = c[3]
+        gamma = 1 / torch.sqrt(a1**2 + a2**2)
+
+        V = self.forward(distances)
+        mask = distances < self.cutoff
+
+        if mask.any():
+            r = distances[mask]
+            V_masked = V[mask]
+
+            term1 = - V_masked / r
+            exp_term = torch.exp(-(gamma * r)**2)
+            term2 = - z1 * z2 * 2 * gamma * exp_term / (r * torch.sqrt(torch.tensor(torch.pi, device=distances.device)))
+
+            results[mask] = term1 + term2
+
+        return results
+    
 class DFTBGammaRepulsive(Feed):
      
     """Repulsive in form of the DFTB-Gamma.
 
-    
+    The repulsion is modeled by the analytical Gamma function form used in 
+    density-functional tight binding (DFTB) theory.
 
     Arguments:
-        coefficients: List containing import parameter
+        coefficients: List containing important parameters
             c[0] := Z_A^eff
             c[1] := Z_B^eff
             c[2] := α_A
@@ -151,21 +184,19 @@ class DFTBGammaRepulsive(Feed):
 
     def __init__(
             self, coefficients: Parameter, cutoff: Tensor):
-
+        """Initialize the DFTB-Gamma repulsive potential module."""
         super().__init__()
         self.coefficients = coefficients
         self.cutoff = cutoff
 
     def forward(self, distances: Tensor) -> Tensor:
-        """Evaluate the repulsive interaction at the specified distance(s).
+        """Evaluate the repulsive interaction energy.
 
         Arguments:
-            distances: Distance(s) at which the repulsive term is to be
-                evaluated.
+            distances: Distance(s) at which the repulsive term is evaluated.
 
         Returns:
-            repulsive: Repulsive interaction energy as evaluated at the
-                specified distances.
+            Repulsive interaction energy tensor at the specified distances.
         """
         results = torch.zeros_like(distances)
         c = self.coefficients
@@ -177,14 +208,49 @@ class DFTBGammaRepulsive(Feed):
 
         if a1 == a2:
             results[mask] = self._equal_gamma(distances[mask], a1)
-        
         else:
             results[mask] = self._unequal_gamma(distances[mask], a1, a2)
 
-
         return results * z1 * z2
     
+    def derivative(self, distances: Tensor) -> Tensor:
+        """Evaluate the analytic derivative of the DFTB-Gamma repulsive interaction.
+
+        Note:
+            Currently implemented only for the special case `a1 == a2`.
+
+        Arguments:
+            distances: Distance(s) at which the derivative is evaluated.
+
+        Returns:
+            Derivative of the DFTB-Gamma repulsive interaction energy.
+        """
+        results = torch.zeros_like(distances)
+        c = self.coefficients
+        z1 = c[0]
+        z2 = c[1]
+        a1 = c[2]
+        a2 = c[3]
+
+        if a1 != a2:
+            raise NotImplementedError("Derivative for a1 != a2 is not implemented.")
+        
+        poly = (
+            -a1 / distances
+            - 11 * a1**2 / 16
+            - 3 * a1**3 * distances / 16
+            - a1**4 * distances**2 / 48
+            - 1 / distances**2
+            + 3 * a1**2 / 16
+            + a1**3 * distances / 24
+        )
+
+        results = z1 * z2 * torch.exp(-a1 * distances) * poly
+
+        return results
+    
     def _Gamma(self, a, b, R):
+        """Evaluate the auxiliary Gamma function used for unequal α values."""
         zaehler1 = b**4 * a
         nenner1 = 2 * (a**2 - b**2)**2
         zaehler2 = b**6 - 3 * b**4 * a**2
@@ -193,6 +259,7 @@ class DFTBGammaRepulsive(Feed):
         return result
     
     def _equal_gamma(self, distances, a1):
+        """Evaluate the repulsive Gamma function for the case `a1 == a2`."""
         term1 = 1 / distances
         term2 = 11 * a1 / 16
         term3 = 3 * a1**2 * distances / 16
@@ -205,6 +272,7 @@ class DFTBGammaRepulsive(Feed):
         return results
     
     def _unequal_gamma(self, distances, a1, a2):
+        """Evaluate the repulsive Gamma function for the case `a1 != a2`."""
         exp1 = torch.exp(-a1 * distances)
         exp2 = torch.exp(-a2 * distances)
         term2 = exp1 * self._Gamma(a1, a2, distances)
@@ -214,26 +282,23 @@ class DFTBGammaRepulsive(Feed):
         return results
 
 def pairwise_repulsive(Geometry, alpha, Z, Repulsive, cutoff):
-    """
-    Delivers input for PairwiseRepulsiveEnergyFeed
+    """Construct a dictionary of pairwise repulsive potential modules.
 
     Arguments:
-        Geometry: Geometry of a system in the tbmalt notation
-        alpha: Dictionary contaning element specific repulsion parameters
-                (with atomic number as key)
-        Z: Dictionary contaning element specific effective charge
-                (with atomic number as key)
-        Repulsive: Type of Repulsive to be used. It works for the following
-                    options:
+        Geometry: Geometry of a system in the tbmalt notation.
+        alpha: Dictionary containing element-specific repulsion parameters (atomic number as key).
+        Z: Dictionary containing element-specific effective charges (atomic number as key).
+        Repulsive: Type of repulsive potential to be used. Options:
             - xTBRepulsive
             - PTBPRepulsive
+            - DFTBGammaRepulsive
+        cutoff: Dictionary of cutoff radii keyed by element pairs.
 
     Returns:
-        A torch `ModuleDict` of pair-wise distance dependent
+        A torch `ModuleDict` of pairwise distance-dependent
         repulsive feeds, keyed by strings representing tuples 
         of the form `"(z₁, z₂)"`, where `z₁` & `z₂` are the 
         atomic numbers of the associated element pair (with `z₁ ≤ z₂`).
-        This can be used as input for the PairwiseRepulsiveEnergyFeed class.
     """
     Dict = ModuleDict({})
     for species_pair, _, _ in atomic_pair_distances(
@@ -257,78 +322,24 @@ def pairwise_repulsive(Geometry, alpha, Z, Repulsive, cutoff):
 
 
 if __name__ == '__main__':
+    """Example usage and simple test of repulsive potentials."""
+    from saveload import load_repulsives, load_Geo_dset
+    from utils import count_distances
 
-    alpha = {
-        1: Parameter(Tensor([2.0]),requires_grad = True),
-        8: Parameter(Tensor([2.0]),requires_grad = True)
-    }
+    base_path = 'logs/63_train'
 
-    Z = {
-        1: Parameter(Tensor([1.0]),requires_grad = True),
-        8: Parameter(Tensor([8.0]),requires_grad = True)
-    }
+    xTB, PTBP, Gamma = load_repulsives(base_path)
 
-    cutoff = {}
+    print(count_distances(load_Geo_dset('dft.hdf5', [1]), 8.0))
     
-    H2O_geo = Geometry(torch.tensor([8, 1, 1]), 
-               torch.tensor([[0.0, -1.0, 0.0],
-                             [0.0, 0.0, 0.78306400000],
-                             [0.0, 0.0, -0.78306400000]], requires_grad=False),
-               units='angstrom'
-               )
-    
-    for species_pair, _, _ in atomic_pair_distances(
-        H2O_geo, True, True):
-        cutoff[str((species_pair[0].item(), species_pair[1].item()))
-               ]= Tensor([5.0])
+    print(xTB.derivative(Tensor([4.467])))
+    print(PTBP.derivative(Tensor([4.467])))
+    print(Gamma.derivative(Tensor([4.467])))
 
-    #xTB_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, xTBRepulsive, cutoff)
+    print(xTB.forward(Tensor([4.467])))
+    print(PTBP.forward(Tensor([4.467])))
+    print(Gamma.forward(Tensor([4.467])))
 
-    #xTB_total_repulsive = PairwiseRepulsiveEnergyFeed(xTB_pair_repulsive)
-
-    #print(xTB_total_repulsive.forward(H2O_geo))
-
-    #PTBP_pair_repulsive = pairwise_repulsive(H2O_geo, alpha, Z, PTBPRepulsive)
-
-    #PTBP_total_repulsive = PairwiseRepulsiveEnergyFeed(PTBP_pair_repulsive)
-    
-    #print(PTBP_total_repulsive.forward(H2O_geo))
-
-    Gamma = DFTBGammaRepulsive([Parameter(Tensor([13.3824])),
-                                Parameter(Tensor([13.3824])),
-                                Parameter(Tensor([0.0003])),
-                                Parameter(Tensor([0.0003]))], 
-                                5.0)
-    xTB = xTBRepulsive([Parameter(Tensor([13.9299])),
-                                Parameter(Tensor([13.9299])),
-                                Parameter(Tensor([1.1169])),
-                                Parameter(Tensor([1.1169])), 
-                                1.0], 
-                                5.0)
-    PTBP = PTBPRepulsive([Parameter(Tensor([14.0585])),
-                                Parameter(Tensor([14.0585])),
-                                Parameter(Tensor([1.0697])),
-                                Parameter(Tensor([1.0697]))], 
-                                5.0)
-    
-    r = torch.arange(3, 6, 0.1)
-    
-    a = Gamma.forward(Tensor(r))
-    b = xTB.forward(Tensor(r))
-    c = PTBP.forward(Tensor(r))
-    print(c)
-
-    import matplotlib.pyplot as plt
-    import numpy
-    fig, ax = plt.subplots()
-    ax.plot(r.numpy(), a.detach().numpy(), 'r', label = 'Gamma')
-    ax.plot(r.numpy(), b.detach().numpy(), 'b', label = 'xTB')
-    ax.plot(r.numpy(), c.detach().numpy(), 'g', label = 'PTBP')
-    ax.set_xlabel('distance [bohr]')
-    ax.set_ylabel('repulsive energy [Ha]')
-    ax.set_title('Si-Si repulsive optimized for a small batch of defects')
-
-    ax.legend()
-
-    plt.show()
-    
+    print(xTB.forward(Tensor([7.295])))
+    print(PTBP.forward(Tensor([7.295])))
+    print(Gamma.forward(Tensor([7.295])))

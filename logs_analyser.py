@@ -1,17 +1,6 @@
-from traintest import load_results_from_file, plot_formation_energies_new
-
-def stringlist_list_converter(string_list):
-    # Strings zusammenfügen und nur den Zahlen-Teil extrahieren
-    full_str = " ".join(string_list)
-    start = full_str.find('[') + 1
-    end = full_str.find(']')
-    numbers_str = full_str[start:end]
-
-    # In float-Liste umwandeln
-    numbers = [float(x) for x in numbers_str.replace(',', ' ').split()]
-    
-    # PyTorch-Tensor erzeugen
-    return numbers
+from traintest import plot_formation_energies_new
+from saveload import load_results_from_file
+from utils import stringlist_list_converter
 
 
 results1 = load_results_from_file('logs/512test/Gamma_result/result_1.txt')[0]
