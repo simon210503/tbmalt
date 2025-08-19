@@ -149,8 +149,8 @@ def plot_formation_energies_new(
         min_val, max_val = all_targets.min(), all_targets.max()
         plt.plot([min_val, max_val], [min_val, max_val], color="black", linestyle="--", linewidth=1)
 
-    plt.xlabel("Target Formation Energy")
-    plt.ylabel("Model Formation Energy")
+    plt.xlabel("Target Formation Energy [Ha]")
+    plt.ylabel("Model Formation Energy [Ha]")
     plt.grid(True)
     plt.tight_layout()
     plt.legend(fontsize=9)
@@ -208,9 +208,8 @@ def plot_formation_energies(
         min_val, max_val = all_targets.min(), all_targets.max()
         plt.plot([min_val, max_val], [min_val, max_val], color="black", linestyle="--", linewidth=1)
 
-    plt.xlabel("Target Formation Energy")
-    plt.ylabel("Model Formation Energy")
-    plt.title("Formation Energy Prediction")
+    plt.xlabel("Target Formation Energy [Ha]")
+    plt.ylabel("Model Formation Energy [Ha]")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -243,7 +242,12 @@ def plot_errors_bar64(errors: list[float], metric_name: str = "MSE", filepath: s
         plt.bar(x + offsets[i], errors[:, i], width=bar_width, label=model)
 
     plt.xlabel("Splits")
-    plt.ylabel(metric_name)
+    if metric_name == 'MSE':
+        plt.ylabel('MSE [Ha^2]')
+    elif metric_name == 'MAE':
+        plt.ylabel('MAE [Ha]')
+    else:
+        plt.ylabel(metric_name)
     plt.xticks(x, [f"Split {i}" for i in range(num_splits)])
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.6)
@@ -271,7 +275,12 @@ def plot_errors_512(errors: list[float], metric_name: str = "MSE", filepath: str
     plt.figure(figsize=(8, 5))
     plt.bar(model_names, errors, color="skyblue")
 
-    plt.ylabel(metric_name)
+    if metric_name == 'MSE':
+        plt.ylabel('MSE [Ha^2]')
+    elif metric_name == 'MAE':
+        plt.ylabel('MAE [Ha]')
+    else:
+        plt.ylabel(metric_name)
     plt.grid(axis='y', linestyle='--', alpha=0.6)
     plt.tight_layout()
 
@@ -320,8 +329,8 @@ def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = N
                 label='distances' if i == 0 else None
             )
 
-    ax.set_xlabel('distance [bohr]')
-    ax.set_ylabel('repulsive energy [Ha]')
+    ax.set_xlabel('Distance [bohr]')
+    ax.set_ylabel('Repulsive energy [Ha]')
     ax.legend(loc="upper right")
     ax.grid(True)
     if save_path is not None:
@@ -348,13 +357,7 @@ def plot_repulsives_relaxed_w_distances(log_path: str, save_dir: str) -> None:
         plot_repulsive_curves(log_path, distances, save_path)
 
 
-def plot_distance_counts(datapoints: list[int]) -> None:
-    """
-    Plot the number of pairwise distances below different cutoffs.
-
-    Args:
-        datapoints (list[int]): List of datapoint indices.
-    """
+def plot_distance_counts(datapoints: list[int], save_path: str = None) -> None:
     cutoffs = torch.arange(0, 11, 0.1)
     plt.figure(figsize=(7,5))
 
@@ -364,21 +367,19 @@ def plot_distance_counts(datapoints: list[int]) -> None:
         counts = [d.numel() for d in all_dists_list]
         plt.plot(cutoffs.numpy(), counts, marker='o', label=f'Datapoint {dp}')
 
-    plt.xlabel("Cutoff")
-    plt.ylabel("Anzahl der Distanzen")
-    plt.title("Anzahl der Distanzen ≤ Cutoff")
+    plt.xlabel("Cutoff [bohr]")
+    plt.ylabel("Absolute amount of repulsive interactions")
     plt.grid(True)
     plt.legend()
-    plt.show()
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    else:
+        plt.show()
+    plt.close()
 
 
-def plot_normalized_distance_counts(datapoints: list[int]) -> None:
-    """
-    Plot normalized counts of pairwise distances (per atom) below different cutoffs.
-
-    Args:
-        datapoints (list[int]): List of datapoint indices.
-    """
+def plot_normalized_distance_counts(datapoints: list[int], save_path: str = None) -> None:
     cutoffs = torch.arange(0, 11, 0.1)
     plt.figure(figsize=(7,5))
 
@@ -390,14 +391,85 @@ def plot_normalized_distance_counts(datapoints: list[int]) -> None:
         normalized_counts = counts / n_atoms
         plt.plot(cutoffs.numpy(), normalized_counts.numpy(), marker='o', label=f'Datapoint {dp}')
 
-    plt.xlabel("Cutoff")
+    plt.xlabel("Cutoff [bohr]")
     plt.ylabel("Repulsive Interactions per number of atoms")
     plt.grid(True)
     plt.legend()
-    plt.show()
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    else:
+        plt.show()
+    plt.close()
 
+
+def plot_distance_distribution(datapoints: list[int], save_path: str = None) -> None:
+    all_distances_flat = []
+
+    for dp in datapoints:
+        Geometry = load_Geo_dset('dft.hdf5', [dp])
+        dists_list = all_distances(Geometry, 10.0)
+        for d in dists_list:
+            all_distances_flat.extend(d.flatten().tolist())
+
+    all_distances_tensor = torch.tensor(all_distances_flat)
+
+    plt.figure(figsize=(7,5))
+    plt.hist(all_distances_tensor.numpy(), bins=50, color='skyblue', edgecolor='black', density=True)
+    plt.xlabel("Distance [bohr]")
+    plt.ylabel("Distribution of distances")
+    plt.grid(True)
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list3: list[int],
+                                        max_cutoff: float = 10.0, bin_width: float = 0.1,
+                                        save_path: str = None) -> None:
+
+    def gather_distances(datapoints: list[int]) -> torch.Tensor:
+        all_dists = []
+        for dp in datapoints:
+            Geometry = load_Geo_dset('dft.hdf5', [dp])
+            dists_list = all_distances(Geometry, max_cutoff)
+            for d in dists_list:
+                all_dists.extend(d.flatten().tolist())
+        return torch.tensor(all_dists)
+
+    dist1 = gather_distances(list1)
+    dist2 = gather_distances(list2)
+    dist3 = gather_distances(list3)
+
+    bins = np.arange(3.5, max_cutoff + bin_width, bin_width)
+
+    plt.figure(figsize=(8,5))
+    plt.hist(dist1.numpy(), bins=bins, alpha=0.5, density=True, label="Set 1", color='blue', edgecolor='black')
+    plt.hist(dist2.numpy(), bins=bins, alpha=0.5, density=True, label="Set 2", color='green', edgecolor='black')
+    plt.hist(dist3.numpy(), bins=bins, alpha=0.5, density=True, label="Set 3", color='red', edgecolor='black')
+
+    plt.xlabel("Distance [bohr]")
+    plt.ylabel("Distribution of distances")
+    plt.legend()
+    plt.grid(True)
+    
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+    else:
+        plt.show()
+    plt.close()
 
 
 if __name__ == "__main__":
-    datapoints = select_random_datapoints(5, 26235432)
-    plot_normalized_distance_counts(datapoints)
+    from utils import find_structures_with_atom_count
+    path = 'dft.hdf5'
+    alld = list(range(1,6307))
+    datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
+    datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
+    datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
+    #plot_normalized_distance_counts(datapoints)
+    #plot_distance_distribution(datapoints)
+    plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')

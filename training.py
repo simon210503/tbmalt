@@ -73,7 +73,7 @@ def train_model(
     Z: Optional[Dict[int, Parameter]] = None,
     early_stopping: bool = True,
     patience: int = 5,
-    min_delta: float = 1e-6,
+    min_delta: float = 1e-7,
     use_weights: bool = False
 ) -> Tuple[List[float], Dict[str, Dict[int, Parameter]], List[float], List[float], Dict[int, Parameter], Dict[int, Parameter]]:
     """

@@ -145,6 +145,33 @@ def count_distances(Geometry: Any, cutoff: Union[float, torch.Tensor], decimals:
     return dict(Counter(rounded.tolist()))
 
 
+
+def shortest_distance(distances: Union[torch.Tensor, List[torch.Tensor]]) -> Union[float, List[float]]:
+    """
+    Get the shortest non-zero distance(s) from a distance matrix or list of them.
+
+    Args:
+        distances (Union[torch.Tensor, List[torch.Tensor]]):
+            - If Tensor: shape (N, N) distance matrix.
+            - If List[Tensor]: list of distance matrices.
+
+    Returns:
+        float or List[float]: The shortest distance (single tensor case) 
+                              or list of shortest distances (list case).
+    """
+
+    def _min_nonzero(d: torch.Tensor) -> float:
+        vals = d.flatten()
+        nonzero = vals[vals > 0]
+        if nonzero.numel() == 0:
+            raise ValueError("No valid non-zero distances found")
+        return nonzero.min().item()
+
+    if isinstance(distances, list):
+        return [_min_nonzero(d) for d in distances]
+    else:
+        return _min_nonzero(distances)
+
 def sum_dict_values(d: Dict[Any, float]) -> float:
     """
     Sums all values in a dictionary.
@@ -213,8 +240,14 @@ def select_random_datapoints(N: int, seed: int, max_dpoint: int = 6306) -> List[
 
 
 if __name__ == "__main__":
-    Geo = load_Geo_dset('dft.hdf5', [2000])
-    alldist = all_distances(Geo, 8.0)
-    c = count_distances(alldist, cutoff=8.0)
-    print(c)
-    print(sum_dict_values(c))
+    """
+    with open("shortest_distances.txt", "w") as f:
+        for ii in range(1, 6307):
+            Geo = load_Geo_dset("dft.hdf5", [ii])
+            alldist = all_distances(Geo, 8.0)
+            shortest = shortest_distance(alldist)
+            f.write(f"{ii} {shortest}\n")
+            """
+    
+    print(find_structures_with_atom_count('dft.hdf5', list(range(1,6307)), 63).numel())
+    print(find_structures_with_atom_count('dft.hdf5', list(range(1,6307)), 64).numel())

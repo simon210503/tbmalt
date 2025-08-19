@@ -373,7 +373,7 @@ def full_routine512(
 
 def full_routine_atomcount_train(
     N_train: int,
-    N_test: int,
+    N_plot: int,
     seed: int,
     weight: bool,
     atom_count: int = 63
@@ -383,7 +383,7 @@ def full_routine_atomcount_train(
 
     Args:
         N_train (int): Number of training datapoints to sample.
-        N_test (int): Number of test datapoints to sample.
+        N_plot (int): Number of datapoints to be plotted.
         seed (int): Seed for random selection of datapoints.
         weight (bool): Whether to use weighted training.
         atom_count (int, optional): Number of atoms in structures to select. Defaults to 63.
@@ -398,8 +398,11 @@ def full_routine_atomcount_train(
     traindpoints = random_sample_from_tensor(selected_indices, N_train)
     print(traindpoints)
 
-    testdpoints = select_random_datapoints(N_test, seed, 6306)
-    print(testdpoints)
+    testdpoints = traindpoints
+
+
+    plotdpoints = select_random_datapoints(N_plot, seed, 6306)
+    print(plotdpoints)
 
     xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
     PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
@@ -420,7 +423,7 @@ def full_routine_atomcount_train(
     print("→ Training mit xTBRepulsive")
     results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, xTB_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=testdpoints,
+        datapoints=plotdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -433,7 +436,7 @@ def full_routine_atomcount_train(
     print("→ Training mit PTBPRepulsive")
     results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=testdpoints,
+        datapoints=plotdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -446,7 +449,7 @@ def full_routine_atomcount_train(
     print("→ Training mit DFTBGammaRepulsive")
     results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=testdpoints,
+        datapoints=plotdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -459,7 +462,7 @@ def full_routine_atomcount_train(
     print("→ Test mit Modell: pbc")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'pbc', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=testdpoints,
+        datapoints=plotdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -472,7 +475,7 @@ def full_routine_atomcount_train(
     print("→ Test mit Modell: siband")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'siband', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=testdpoints,
+        datapoints=plotdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -483,6 +486,121 @@ def full_routine_atomcount_train(
     plot_errors_512(MSE, metric_name='MSE', filepath=f'plots/{atom_count}_train/MSE.png')
     plot_errors_512(MAE, metric_name='MAE', filepath=f'plots/{atom_count}_train/MAE.png')
     save_dir = f'plots/{atom_count}_train/repulsives'
+    plot_repulsives_relaxed_w_distances(log_dir, save_dir)
+
+def full_routine_63_64_train(
+    N_test: int,
+    seed: int,
+    weight: bool
+) -> None:
+    """
+    Train and evaluate models for structures with a specific number of atoms.
+
+    Args:
+        N_train (int): Number of training datapoints to sample.
+        N_test (int): Number of test datapoints to sample.
+        seed (int): Seed for random selection of datapoints.
+        weight (bool): Whether to use weighted training.
+        atom_count (int, optional): Number of atoms in structures to select. Defaults to 63.
+
+    Returns:
+        None
+    """
+    sample_path = 'dft.hdf5'
+
+    all_dpoints = list(range(1, 6307))
+    selected_indices63 = find_structures_with_atom_count(sample_path, all_dpoints, 63).tolist()
+    selected_indices64 = find_structures_with_atom_count(sample_path, all_dpoints, 64).tolist()
+    traindpoints = selected_indices63 + selected_indices64
+    print(traindpoints)
+
+    testdpoints = traindpoints
+
+    plotdpoints = select_random_datapoints(N_test, seed, 6306)
+    print(plotdpoints)
+
+    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+
+    split_dir = f"plots/6364_train/formation_energies"
+    log_dir = f"logs/6364_train"
+    os.makedirs(split_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+
+    MSE: List[float] = []
+    MAE: List[float] = []
+
+    # Training and testing for each repulsive model
+    print("→ Training mit xTBRepulsive")
+    results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, xTB_Z, weight=weight)
+    plot_formation_energies_new(
+        datapoints=plotdpoints,
+        sample_path=sample_path,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/xTB.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/xTB_result")
+    MSE.append(results[10])
+    MAE.append(results[11])
+
+    print("→ Training mit PTBPRepulsive")
+    results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z, weight=weight)
+    plot_formation_energies_new(
+        datapoints=plotdpoints,
+        sample_path=sample_path,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/PTBP.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/PTBP_result")
+    MSE.append(results[10])
+    MAE.append(results[11])
+
+    print("→ Training mit DFTBGammaRepulsive")
+    results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z, weight=weight)
+    plot_formation_energies_new(
+        datapoints=plotdpoints,
+        sample_path=sample_path,
+        target_test=results[4],
+        model_test=results[5],
+        filepath=f"{split_dir}/Gamma.png"
+    )
+    save_results_to_directory(results, f"{log_dir}/Gamma_result")
+    MSE.append(results[10])
+    MAE.append(results[11])
+
+    print("→ Test mit Modell: pbc")
+    mse, mae, target, model = test_model(sample_path, testdpoints, 'pbc', xTB_alpha, xTB_Z, use_weights=weight)
+    plot_formation_energies_new(
+        datapoints=plotdpoints,
+        sample_path=sample_path,
+        target_test=target,
+        model_test=model,
+        filepath=f"{split_dir}/pbc.png"
+    )
+    save_results_to_directory([mse, mae, target, model], f"{log_dir}/pbc_result")
+    MSE.append(mse)
+    MAE.append(mae)
+
+    print("→ Test mit Modell: siband")
+    mse, mae, target, model = test_model(sample_path, testdpoints, 'siband', xTB_alpha, xTB_Z, use_weights=weight)
+    plot_formation_energies_new(
+        datapoints=plotdpoints,
+        sample_path=sample_path,
+        target_test=target,
+        model_test=model,
+        filepath=f"{split_dir}/siband.png"
+    )
+    save_results_to_directory([mse, mae, target, model], f"{log_dir}/siband_result")
+
+    plot_errors_512(MSE, metric_name='MSE', filepath=f'plots/6364_train/MSE.png')
+    plot_errors_512(MAE, metric_name='MAE', filepath=f'plots/6364_train/MAE.png')
+    save_dir = f'plots/6364_train/repulsives'
     plot_repulsives_relaxed_w_distances(log_dir, save_dir)
 
 if __name__ == "__main__":
@@ -497,6 +615,7 @@ if __name__ == "__main__":
     #dpoints = split_data(datapoints, portions)
     #testdpoints = dpoints[0]
     #traindpoints = [dp for i, part in enumerate(dpoints) if i != 0 for dp in part]
-    full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
-    full_routine512(total_dpoints, seed, max_dpoint, weight = True)
-    #full_routine_atomcount_train(100, 100, 82314897, False, 64)
+    #full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
+    #full_routine512(total_dpoints, seed, max_dpoint, weight = True)
+    full_routine_atomcount_train(1301, 1000, 8262754, True, 63)
+    full_routine_63_64_train(1000, 3432145597, True)
