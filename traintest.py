@@ -400,7 +400,7 @@ def full_routine_atomcount_train(
     print(traindpoints)
 
 
-    testdpoints = select_random_datapoints(testdpoints, seed, 6306)
+    testdpoints = select_random_datapoints(N_test, seed, 6306)
     print(testdpoints)
 
     xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
