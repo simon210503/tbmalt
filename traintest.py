@@ -170,12 +170,13 @@ def full_routine64(
     for ii in range(5):
         print(f"\n🔁 Zyklus {ii+1}/5")
 
-        xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
-        PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
-        Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
-        xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
-        PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
-        Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
+        xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
+        PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
+        Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
+        xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
+        PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
+        Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+
 
         testdpoints = dpoints[ii]
         traindpoints = [dp for i, part in enumerate(dpoints) if i != ii for dp in part]
@@ -281,12 +282,12 @@ def full_routine512(
     Returns:
         None
     """
-    xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
-    xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
-    PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
-    Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
+    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
 
     MSE: List[float] = []
     MAE: List[float] = []
@@ -373,7 +374,7 @@ def full_routine512(
 
 def full_routine_atomcount_train(
     N_train: int,
-    N_plot: int,
+    N_test: int,
     seed: int,
     weight: bool,
     atom_count: int = 63
@@ -398,11 +399,9 @@ def full_routine_atomcount_train(
     traindpoints = random_sample_from_tensor(selected_indices, N_train)
     print(traindpoints)
 
-    testdpoints = traindpoints
 
-
-    plotdpoints = select_random_datapoints(N_plot, seed, 6306)
-    print(plotdpoints)
+    testdpoints = select_random_datapoints(testdpoints, seed, 6306)
+    print(testdpoints)
 
     xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
     PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
@@ -423,7 +422,7 @@ def full_routine_atomcount_train(
     print("→ Training mit xTBRepulsive")
     results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, xTB_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -436,7 +435,7 @@ def full_routine_atomcount_train(
     print("→ Training mit PTBPRepulsive")
     results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -449,7 +448,7 @@ def full_routine_atomcount_train(
     print("→ Training mit DFTBGammaRepulsive")
     results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -462,7 +461,7 @@ def full_routine_atomcount_train(
     print("→ Test mit Modell: pbc")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'pbc', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -475,7 +474,7 @@ def full_routine_atomcount_train(
     print("→ Test mit Modell: siband")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'siband', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -514,10 +513,8 @@ def full_routine_63_64_train(
     traindpoints = selected_indices63 + selected_indices64
     print(traindpoints)
 
-    testdpoints = traindpoints
-
-    plotdpoints = select_random_datapoints(N_test, seed, 6306)
-    print(plotdpoints)
+    testdpoints = select_random_datapoints(N_test, seed, 6306)
+    print(testdpoints)
 
     xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
     PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
@@ -538,7 +535,7 @@ def full_routine_63_64_train(
     print("→ Training mit xTBRepulsive")
     results = train64test64(traindpoints, testdpoints, xTBRepulsive, xTB_alpha, xTB_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -551,7 +548,7 @@ def full_routine_63_64_train(
     print("→ Training mit PTBPRepulsive")
     results = train64test64(traindpoints, testdpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -564,7 +561,7 @@ def full_routine_63_64_train(
     print("→ Training mit DFTBGammaRepulsive")
     results = train64test64(traindpoints, testdpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z, weight=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=results[4],
         model_test=results[5],
@@ -577,7 +574,7 @@ def full_routine_63_64_train(
     print("→ Test mit Modell: pbc")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'pbc', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -590,7 +587,7 @@ def full_routine_63_64_train(
     print("→ Test mit Modell: siband")
     mse, mae, target, model = test_model(sample_path, testdpoints, 'siband', xTB_alpha, xTB_Z, use_weights=weight)
     plot_formation_energies_new(
-        datapoints=plotdpoints,
+        datapoints=testdpoints,
         sample_path=sample_path,
         target_test=target,
         model_test=model,
@@ -615,7 +612,7 @@ if __name__ == "__main__":
     #dpoints = split_data(datapoints, portions)
     #testdpoints = dpoints[0]
     #traindpoints = [dp for i, part in enumerate(dpoints) if i != 0 for dp in part]
-    full_routine64(total_dpoints, 432589237, max_dpoint, portions, weight = True)
-    full_routine512(total_dpoints, 549345823, max_dpoint, weight = True)
-    full_routine_atomcount_train(1301, 1000, 38478291, True, 63)
-    full_routine_63_64_train(1000, 7438290578932, True)
+    #full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
+    #full_routine512(total_dpoints, seed, max_dpoint, weight = True)
+    full_routine_atomcount_train(1301, 1000, 8483783, True, 63)
+    full_routine_63_64_train(1000, 48327895703, True)
