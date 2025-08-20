@@ -437,9 +437,9 @@ def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list
     bins = np.arange(3.5, max_cutoff + bin_width, bin_width)
 
     plt.figure(figsize=(8,5))
-    plt.hist(dist1.numpy(), bins=bins, alpha=0.5, density=True, label="Set 1", color='blue', edgecolor='black')
-    plt.hist(dist2.numpy(), bins=bins, alpha=0.5, density=True, label="Set 2", color='green', edgecolor='black')
-    plt.hist(dist3.numpy(), bins=bins, alpha=0.5, density=True, label="Set 3", color='red', edgecolor='black')
+    plt.hist(dist1.numpy(), bins=bins, alpha=0.5, density=True, label="63", color='blue', edgecolor='black')
+    plt.hist(dist2.numpy(), bins=bins, alpha=0.5, density=True, label="64", color='green', edgecolor='black')
+    plt.hist(dist3.numpy(), bins=bins, alpha=0.5, density=True, label="65", color='red', edgecolor='black')
 
     plt.xlabel("Distance [bohr]")
     plt.ylabel("Distribution of distances")

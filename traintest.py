@@ -602,17 +602,16 @@ def full_routine_63_64_train(
 
 if __name__ == "__main__":
     total_dpoints = 6306
-    seed = 3648295765
+    seed = 834893041
     max_dpoint = 6306
     portions = 5
-    repulsive_model = xTBRepulsive
 
 
     #datapoints = select_random_datapoints(total_dpoints, seed, max_dpoint)
     #dpoints = split_data(datapoints, portions)
     #testdpoints = dpoints[0]
     #traindpoints = [dp for i, part in enumerate(dpoints) if i != 0 for dp in part]
-    #full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
-    #full_routine512(total_dpoints, seed, max_dpoint, weight = True)
-    full_routine_atomcount_train(1301, 1000, 8483783, True, 63)
-    full_routine_63_64_train(1000, 48327895703, True)
+    full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
+    full_routine512(total_dpoints, seed, max_dpoint, weight = True)
+    #full_routine_atomcount_train(1301, 1000, 8483783, True, 63)
+    #full_routine_63_64_train(1000, 48327895703, True)
