@@ -170,12 +170,12 @@ def full_routine64(
     for ii in range(5):
         print(f"\n🔁 Zyklus {ii+1}/5")
 
-        xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
-        PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
-        Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
-        xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
-        PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
-        Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+        xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
+        PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
+        Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
+        xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
+        PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
+        Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
 
         testdpoints = dpoints[ii]
         traindpoints = [dp for i, part in enumerate(dpoints) if i != ii for dp in part]
@@ -281,12 +281,12 @@ def full_routine512(
     Returns:
         None
     """
-    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
-    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
-    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
-    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+    xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
 
     MSE: List[float] = []
     MAE: List[float] = []
@@ -404,12 +404,12 @@ def full_routine_atomcount_train(
     plotdpoints = select_random_datapoints(N_plot, seed, 6306)
     print(plotdpoints)
 
-    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
-    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
-    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
-    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+    xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
 
     split_dir = f"plots/{atom_count}_train/formation_energies"
     log_dir = f"logs/{atom_count}_train"
@@ -519,12 +519,12 @@ def full_routine_63_64_train(
     plotdpoints = select_random_datapoints(N_test, seed, 6306)
     print(plotdpoints)
 
-    xTB_alpha = {14: Parameter(torch.tensor([0.9549]), requires_grad=True)}
-    PTBP_alpha = {14: Parameter(torch.tensor([1.12357]), requires_grad=True)}
-    Gamma_alpha = {14: Parameter(torch.tensor([2.7285]), requires_grad=True)}
-    xTB_Z = {14: Parameter(torch.tensor([13.2505]), requires_grad=True)}
-    PTBP_Z = {14: Parameter(torch.tensor([8.4406]), requires_grad=True)}
-    Gamma_Z = {14: Parameter(torch.tensor([9.2531]), requires_grad=True)}
+    xTB_alpha = {14: Parameter(torch.tensor([0.4709]), requires_grad=True)}
+    PTBP_alpha = {14: Parameter(torch.tensor([1.7996]), requires_grad=True)}
+    Gamma_alpha = {14: Parameter(torch.tensor([1.9513]), requires_grad=True)}
+    xTB_Z = {14: Parameter(torch.tensor([3.2796]), requires_grad=True)}
+    PTBP_Z = {14: Parameter(torch.tensor([3.0571]), requires_grad=True)}
+    Gamma_Z = {14: Parameter(torch.tensor([4.7265]), requires_grad=True)}
 
     split_dir = f"plots/6364_train/formation_energies"
     log_dir = f"logs/6364_train"
@@ -615,7 +615,7 @@ if __name__ == "__main__":
     #dpoints = split_data(datapoints, portions)
     #testdpoints = dpoints[0]
     #traindpoints = [dp for i, part in enumerate(dpoints) if i != 0 for dp in part]
-    #full_routine64(total_dpoints, seed, max_dpoint, portions, weight = True)
-    #full_routine512(total_dpoints, seed, max_dpoint, weight = True)
-    full_routine_atomcount_train(1301, 1000, 8262754, True, 63)
-    full_routine_63_64_train(1000, 3432145597, True)
+    full_routine64(total_dpoints, 432589237, max_dpoint, portions, weight = True)
+    full_routine512(total_dpoints, 549345823, max_dpoint, weight = True)
+    full_routine_atomcount_train(1301, 1000, 38478291, True, 63)
+    full_routine_63_64_train(1000, 7438290578932, True)

@@ -242,12 +242,7 @@ def plot_errors_bar64(errors: list[float], metric_name: str = "MSE", filepath: s
         plt.bar(x + offsets[i], errors[:, i], width=bar_width, label=model)
 
     plt.xlabel("Splits")
-    if metric_name == 'MSE':
-        plt.ylabel('MSE [Ha^2]')
-    elif metric_name == 'MAE':
-        plt.ylabel('MAE [Ha]')
-    else:
-        plt.ylabel(metric_name)
+    plt.ylabel(metric_name)
     plt.xticks(x, [f"Split {i}" for i in range(num_splits)])
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.6)
@@ -275,12 +270,7 @@ def plot_errors_512(errors: list[float], metric_name: str = "MSE", filepath: str
     plt.figure(figsize=(8, 5))
     plt.bar(model_names, errors, color="skyblue")
 
-    if metric_name == 'MSE':
-        plt.ylabel('MSE [Ha^2]')
-    elif metric_name == 'MAE':
-        plt.ylabel('MAE [Ha]')
-    else:
-        plt.ylabel(metric_name)
+    plt.ylabel(metric_name)
     plt.grid(axis='y', linestyle='--', alpha=0.6)
     plt.tight_layout()
 

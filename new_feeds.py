@@ -326,7 +326,8 @@ if __name__ == '__main__':
     from saveload import load_repulsives, load_Geo_dset
     from utils import count_distances
 
-    base_path = 'logs/63_train'
+    #base_path = 'logs/63_train'
+    base_path = 'logs/6364_train'
 
     xTB, PTBP, Gamma = load_repulsives(base_path)
 
@@ -343,3 +344,7 @@ if __name__ == '__main__':
     print(xTB.forward(Tensor([7.295])))
     print(PTBP.forward(Tensor([7.295])))
     print(Gamma.forward(Tensor([7.295])))
+
+    print(xTB.forward(Tensor([6.0])))
+    print(PTBP.forward(Tensor([6.0])))
+    print(Gamma.forward(Tensor([6.0])))
