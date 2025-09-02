@@ -122,7 +122,7 @@ def load_parameters(file_path: str) -> list[float]:
     return [float(n) for n in numbers]
 
 
-def load_repulsives(base_path: str, cutoff: float = 8.0) -> Tuple[xTBRepulsive, PTBPRepulsive, DFTBGammaRepulsive]:
+def load_repulsives(base_path: str, cutoff: float = 6.0) -> Tuple[xTBRepulsive, PTBPRepulsive, DFTBGammaRepulsive]:
     """
     Load repulsive potentials (xTB, PTBP, DFTB-Gamma) from parameter files.
 
@@ -166,3 +166,41 @@ def load_repulsives(base_path: str, cutoff: float = 8.0) -> Tuple[xTBRepulsive, 
     )
 
     return xTB, PTBP, Gamma
+
+def load_MSE_from_file(base_path):
+
+    MSE = []
+    for ii in range(5):
+        MSE.append(load_results_from_file(os.path.join(base_path, f'split{ii}/xTB_result/result_10.txt'))[0])
+        MSE.append(load_results_from_file(os.path.join(base_path, f'split{ii}/PTBP_result/result_10.txt'))[0])
+        MSE.append(load_results_from_file(os.path.join(base_path, f'split{ii}/Gamma_result/result_10.txt'))[0])
+        MSE.append(load_results_from_file(os.path.join(base_path, f'split{ii}/pbc_result/result_0.txt'))[0])
+
+    return MSE
+
+def load_MSE512_from_file(base_path):
+
+    MSE = []
+    MSE.append(load_results_from_file(os.path.join(base_path, f'xTB_result/result_10.txt'))[0])
+    MSE.append(load_results_from_file(os.path.join(base_path, f'PTBP_result/result_10.txt'))[0])
+    MSE.append(load_results_from_file(os.path.join(base_path, f'Gamma_result/result_10.txt'))[0])
+    MSE.append(load_results_from_file(os.path.join(base_path, f'pbc_result/result_0.txt'))[0])
+
+    return MSE
+
+
+def load_testdpoints_from_file(base_path):
+    dpoints = load_results_from_file(os.path.join(base_path, 'Gamma_result/result_1.txt'))[0]
+    return dpoints
+        
+
+if __name__ == '__main__':
+
+    from pathlib import Path
+    from utils import stringlist_list_converter
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/64routine/split3')
+    #zahlen = load_testdpoints_from_file(base_path)
+    #kleiner_gleich_6 = [x for x in zahlen if x <= 6]
+    #print(kleiner_gleich_6)
+
+    print(load_parameters(os.path.join(base_path, 'Gamma_result/result_8.txt')))

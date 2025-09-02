@@ -5,11 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from torch import Tensor
+from pathlib import Path
 from tbmalt.physics.dftb.feeds import DftbpRepulsiveSpline
 from tbmalt.io.skf import Skf
 
 from utils import get_atom_count_from_hdf5, all_distances, select_random_datapoints
-from saveload import load_repulsives, load_Geo_dset
+from saveload import load_repulsives, load_Geo_dset, load_testdpoints_from_file, load_parameters
+from formation_calc import calc_reference_formation_energies, calc_formation_energy, prepare_system
 from new_feeds import DFTBGammaRepulsive, xTBRepulsive, PTBPRepulsive
 
 
@@ -67,21 +69,14 @@ def plot_formation_energies_new(
     model_test: Tensor | np.ndarray | list[float],
     target_train: Tensor | np.ndarray | list[float] | None = None,
     model_train: Tensor | np.ndarray | list[float] | None = None,
-    filepath: str = "plots/formation_energy_plot.png"
+    filepath: str = "plots/formation_energy_plot.png",
+    axis_limits: tuple[float, float] | None = None  # optionales symmetrisches Limit
 ) -> None:
     """
-    Plot target vs. model formation energies with markers grouped by atom counts.
-
-    Args:
-        datapoints (list[int]): List of datapoint indices.
-        sample_path (str): Path to the dataset.
-        target_test (Tensor | np.ndarray | list[float]): Target values for test set.
-        model_test (Tensor | np.ndarray | list[float]): Model predictions for test set.
-        target_train (Tensor | np.ndarray | list[float] | None): Target values for training set.
-        model_train (Tensor | np.ndarray | list[float] | None): Model predictions for training set.
-        filepath (str): Path where the plot should be saved.
+    Plot target vs. model formation energies with markers grouped by dataset IDs and custom legend labels.
+    Optionally, set symmetric axis limits.
     """
-    def to_numpy(x: Tensor | np.ndarray | list[float] | None) -> np.ndarray:
+    def to_numpy(x):
         if x is None:
             return np.array([])
         if isinstance(x, torch.Tensor):
@@ -102,62 +97,94 @@ def plot_formation_energies_new(
         print("Warnung: Keine Testdaten zum Plotten vorhanden. Der Plot wird nicht gespeichert.")
         return
 
+    # IDs aus HDF5
     atom_counts_test = get_atom_count_from_hdf5(sample_path, datapoints).tolist()
     atom_counts_train: list[int] = []
     if target_train_np.size > 0:
         atom_counts_train = get_atom_count_from_hdf5(sample_path, datapoints).tolist()
 
+    # Mapping IDs → Labels
+    label_map = {
+        63: "Vacancies",
+        64: "Perfect/MD",
+        65: "Interstitials",
+        511: "Vacancy",
+        512: "Perfect",
+        513: "Interstitials"
+    }
+
     plt.figure(figsize=(6, 6))
-    unique_atom_counts = sorted(set(atom_counts_train + atom_counts_test))
+    unique_ids = sorted(set(atom_counts_train + atom_counts_test))
 
     colors = ['red', 'blue', 'green']
     markers = ['o', 's', '^']
 
-    color_map = {atom_num: colors[i] for i, atom_num in enumerate(unique_atom_counts)}
-    marker_map = {atom_num: markers[i] for i, atom_num in enumerate(unique_atom_counts)}
+    color_map = {uid: colors[i % len(colors)] for i, uid in enumerate(unique_ids)}
+    marker_map = {uid: markers[i % len(markers)] for i, uid in enumerate(unique_ids)}
 
-    for atom_num in unique_atom_counts:
-        plt.scatter([], [], color=color_map[atom_num], marker=marker_map[atom_num], label=str(atom_num), edgecolor='k')
+    # Dummy scatter für Legende
+    for uid in unique_ids:
+        plt.scatter([], [], color=color_map[uid], marker=marker_map[uid], 
+                    label=label_map.get(uid, str(uid)), edgecolor='k')
 
+    # Training
     if target_train_np.size > 0:
-        for atom_num in unique_atom_counts:
-            idx_train = [i for i, a in enumerate(atom_counts_train) if a == atom_num]
+        for uid in unique_ids:
+            idx_train = [i for i, a in enumerate(atom_counts_train) if a == uid]
             if idx_train:
                 plt.scatter(
                     target_train_np[idx_train],
                     model_train_np[idx_train],
-                    color=color_map[atom_num],
-                    marker=marker_map[atom_num],
+                    color=color_map[uid],
+                    marker=marker_map[uid],
                     alpha=0.7,
-                    edgecolor="k",
+                    edgecolor='k'
                 )
 
-    for atom_num in unique_atom_counts:
-        idx_test = [i for i, a in enumerate(atom_counts_test) if a == atom_num]
+    # Testing
+    for uid in unique_ids:
+        idx_test = [i for i, a in enumerate(atom_counts_test) if a == uid]
         if idx_test:
             plt.scatter(
                 target_test_np[idx_test],
                 model_test_np[idx_test],
-                color=color_map[atom_num],
-                marker=marker_map[atom_num],
+                color=color_map[uid],
+                marker=marker_map[uid],
                 alpha=0.7,
-                edgecolor="k",
+                edgecolor='k'
             )
 
-    all_targets = np.concatenate([target_train_np, target_test_np])
-    if all_targets.size > 0:
-        min_val, max_val = all_targets.min(), all_targets.max()
-        plt.plot([min_val, max_val], [min_val, max_val], color="black", linestyle="--", linewidth=1)
+    # Diagonale
+    if axis_limits is not None:
+        min_val, max_val = axis_limits
+    else:
+        all_targets = np.concatenate([target_train_np, target_test_np])
+        if all_targets.size > 0:
+            min_val, max_val = all_targets.min(), all_targets.max()
+        else:
+            min_val, max_val = 0, 1  # Fallback, falls keine Daten vorhanden
 
-    plt.xlabel("Target Formation Energy [Ha]")
-    plt.ylabel("Model Formation Energy [Ha]")
+    plt.plot([min_val, max_val], [min_val, max_val], color='black', linestyle='--', linewidth=1)
+
+    # Achsenlimits
+    if axis_limits is not None:
+        plt.xlim(axis_limits)
+        plt.ylim(axis_limits)
+
+
+    # Labels und Ticks
+    plt.xlabel("Target Formation Energy [Ha]", fontsize=18)
+    plt.ylabel("Model Formation Energy [Ha]", fontsize=18)
+    plt.tick_params(axis='both', which='major', labelsize=18)
+
     plt.grid(True)
     plt.tight_layout()
-    plt.legend(fontsize=9)
+    plt.legend(fontsize=15)
 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     plt.savefig(filepath, dpi=300)
     plt.close()
+
 
 
 def plot_formation_energies(
@@ -237,20 +264,21 @@ def plot_errors_bar64(errors: list[float], metric_name: str = "MSE", filepath: s
     bar_width = 0.18
     offsets = np.linspace(-bar_width * 1.5, bar_width * 1.5, num_models)
 
-    plt.figure(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     for i, model in enumerate(model_names):
-        plt.bar(x + offsets[i], errors[:, i], width=bar_width, label=model)
+        ax.bar(x + offsets[i], errors[:, i], width=bar_width, label=model)
 
-    plt.xlabel("Splits")
-    plt.ylabel(metric_name)
-    plt.xticks(x, [f"Split {i}" for i in range(num_splits)])
-    plt.legend()
-    plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.tight_layout()
+    ax.set_ylabel(f"{metric_name} [Ha$^2$]", fontsize=18)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"Split {i}" for i in range(num_splits)], fontsize=18)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.legend(fontsize=12)
+    ax.grid(axis='y', linestyle='--', alpha=0.6)
+    fig.tight_layout()
 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    plt.savefig(filepath, dpi=300)
-    plt.close()
+    fig.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close(fig)
 
 
 def plot_errors_512(errors: list[float], metric_name: str = "MSE", filepath: str = "plots/errors/512_bar.png") -> None:
@@ -263,20 +291,29 @@ def plot_errors_512(errors: list[float], metric_name: str = "MSE", filepath: str
         filepath (str): Path where the plot should be saved.
     """
     model_names = ["xTB", "PTBP", "Gamma", "pbc"]
+    colors = ["b", "g", "r", "y"]  # gleiche Reihenfolge wie in plot_repulsive_curves
 
     if len(errors) != 4:
         raise ValueError(f"Fehlerliste muss genau 4 Werte enthalten, aber hat {len(errors)}.")
 
-    plt.figure(figsize=(8, 5))
-    plt.bar(model_names, errors, color="skyblue")
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    plt.ylabel(metric_name)
-    plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.tight_layout()
+    bars = ax.bar(model_names, errors, color=colors)
+
+    ax.set_ylabel(f"{metric_name} [Ha$^2$]", fontsize=18)
+    ax.set_xticklabels(model_names, fontsize=18)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+
+    # Legende mit den Model-Namen
+    ax.legend(bars, model_names, fontsize=12, loc="upper right")
+
+    ax.grid(axis='y', linestyle='--', alpha=0.6)
+    fig.tight_layout()
 
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    plt.savefig(filepath, dpi=300)
-    plt.close()
+    fig.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
 
 
 def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = None, save_path: str | None = None) -> None:
@@ -295,38 +332,50 @@ def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = N
     skf_data = Skf.read(path=file_path, atom_pair=atom_pair, device="cpu", dtype=torch.float64)
     PBC = DftbpRepulsiveSpline.from_skf(skf_data)
 
-    r = torch.arange(4, 9, 0.1)
+    r = torch.arange(3.5, 6.5, 0.01)
 
     a = Gamma.forward(Tensor(r))
     b = xTB.forward(Tensor(r))
     c = PTBP.forward(Tensor(r))
     d = PBC.forward(Tensor(r))
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8,5))
     ax.plot(r.numpy(), a.detach().numpy(), 'r', label='Gamma')
     ax.plot(r.numpy(), b.detach().numpy(), 'b', label='xTB')
     ax.plot(r.numpy(), c.detach().numpy(), 'g', label='PTBP')
-    ax.plot(r.numpy(), d.detach().numpy(), 'y', label='pbc')
+    ax.plot(r.numpy(), d.detach().numpy(), 'y', label='PBC')
+
 
     if all_distances is not None:
-        for i, d in enumerate(all_distances):
+        if isinstance(all_distances, torch.Tensor):
+            values = all_distances.cpu().numpy()
+        else:
+            values = np.array(all_distances)
+
+        rounded = np.round(values, decimals=3)
+        for i, dist in enumerate(rounded):
             ax.axvline(
-                x=d.item(),
+                x=dist.item(),
                 color='k',
                 linestyle='--',
                 alpha=0.3,
-                linewidth=0.5,
-                label='distances' if i == 0 else None
+                linewidth=0.5
             )
 
-    ax.set_xlabel('Distance [bohr]')
-    ax.set_ylabel('Repulsive energy [Ha]')
-    ax.legend(loc="upper right")
+    # Sichtbereich so setzen, dass die Kurven bis zum Rand gehen
+    ax.set_xlim(r.min().item(), r.max().item())
+
+    ax.set_xlabel('Distance [bohr]', fontsize=12)
+    ax.set_ylabel('Repulsive energy [Ha]', fontsize=12)
+    ax.tick_params(axis='both', which='major', labelsize=10)
+    ax.legend(loc="upper right", fontsize=9)
     ax.grid(True)
+
     if save_path is not None:
-        fig.savefig(save_path, bbox_inches='tight')
+        fig.savefig(save_path, bbox_inches='tight', dpi=300)
         plt.close(fig)
     else:
+        fig.tight_layout()
         plt.show()
 
 
@@ -452,14 +501,241 @@ def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list
         plt.show()
     plt.close()
 
+def plot_formation_energies_from_saved_params(base_path, base_save_path, sample_path, axis_limit):
+    Gamma_alpha = load_parameters(f'{base_path}/Gamma_result/result_8.txt')
+    Gamma_Z = load_parameters(f'{base_path}/Gamma_result/result_9.txt')
+    xTB_alpha = load_parameters(f'{base_path}/xTB_result/result_8.txt')
+    xTB_Z = load_parameters(f'{base_path}/xTB_result/result_9.txt')
+    PTBP_alpha = load_parameters(f'{base_path}/PTBP_result/result_8.txt')
+    PTBP_Z = load_parameters(f'{base_path}/PTBP_result/result_9.txt')
+
+    from torch.nn import Parameter
+
+    # Beispielhafte Funktion, um die geladenen Werte zu verpacken
+    def wrap_as_dict(value: float | list[float], key: int = 14) -> dict[int, Parameter]:
+        """
+        Verpackt einen Wert oder eine Liste in das gewünschte Format:
+        {14: Parameter(Tensor([...]), requires_grad=True)}
+
+        Args:
+            value (float | list[float]): Eingabewert(e).
+            key (int): Schlüssel des Dictionaries.
+
+        Returns:
+            dict[int, Parameter]: Dictionary mit dem Schlüssel und Parameter.
+        """
+        if isinstance(value, list):
+            tensor = torch.tensor(value, dtype=torch.float32)
+        else:
+            tensor = torch.tensor([value], dtype=torch.float32)
+
+        return {key: Parameter(tensor, requires_grad=True)}
+
+
+    # Verwendung für deine Variablen
+    Gamma_alpha = wrap_as_dict(Gamma_alpha, key=14)
+    Gamma_Z = wrap_as_dict(Gamma_Z, key=14)
+    xTB_alpha = wrap_as_dict(xTB_alpha, key=14)
+    xTB_Z = wrap_as_dict(xTB_Z, key=14)
+    PTBP_alpha = wrap_as_dict(PTBP_alpha, key=14)
+    PTBP_Z = wrap_as_dict(PTBP_Z, key=14)
+
+    dpoints = load_testdpoints_from_file(base_path)
+    target_test = calc_reference_formation_energies(sample_path, dpoints)
+
+    params = prepare_system(sample_path, dpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'Gamma.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, xTBRepulsive, xTB_alpha, xTB_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'xTB.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'PTBP.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, 'pbc', PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'pbc.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, 'siband', PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'siband.png'), axis_limits=axis_limit)
+
+
+def plot_formation_energies_from_saved_params_random_dpoints(base_path, base_save_path, sample_path, seed, axis_limit):
+    Gamma_alpha = load_parameters(f'{base_path}/Gamma_result/result_8.txt')
+    Gamma_Z = load_parameters(f'{base_path}/Gamma_result/result_9.txt')
+    xTB_alpha = load_parameters(f'{base_path}/xTB_result/result_8.txt')
+    xTB_Z = load_parameters(f'{base_path}/xTB_result/result_9.txt')
+    PTBP_alpha = load_parameters(f'{base_path}/PTBP_result/result_8.txt')
+    PTBP_Z = load_parameters(f'{base_path}/PTBP_result/result_9.txt')
+
+    from torch.nn import Parameter
+    from utils import select_random_datapoints
+
+    # Beispielhafte Funktion, um die geladenen Werte zu verpacken
+    def wrap_as_dict(value: float | list[float], key: int = 14) -> dict[int, Parameter]:
+        """
+        Verpackt einen Wert oder eine Liste in das gewünschte Format:
+        {14: Parameter(Tensor([...]), requires_grad=True)}
+
+        Args:
+            value (float | list[float]): Eingabewert(e).
+            key (int): Schlüssel des Dictionaries.
+
+        Returns:
+            dict[int, Parameter]: Dictionary mit dem Schlüssel und Parameter.
+        """
+        if isinstance(value, list):
+            tensor = torch.tensor(value, dtype=torch.float32)
+        else:
+            tensor = torch.tensor([value], dtype=torch.float32)
+
+        return {key: Parameter(tensor, requires_grad=True)}
+
+
+    # Verwendung für deine Variablen
+    Gamma_alpha = wrap_as_dict(Gamma_alpha, key=14)
+    Gamma_Z = wrap_as_dict(Gamma_Z, key=14)
+    xTB_alpha = wrap_as_dict(xTB_alpha, key=14)
+    xTB_Z = wrap_as_dict(xTB_Z, key=14)
+    PTBP_alpha = wrap_as_dict(PTBP_alpha, key=14)
+    PTBP_Z = wrap_as_dict(PTBP_Z, key=14)
+
+    dpoints = select_random_datapoints(1000, seed)
+    target_test = calc_reference_formation_energies(sample_path, dpoints)
+
+    params = prepare_system(sample_path, dpoints, DFTBGammaRepulsive, Gamma_alpha, Gamma_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'Gamma.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, xTBRepulsive, xTB_alpha, xTB_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'xTB.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, PTBPRepulsive, PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'PTBP.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, 'pbc', PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'pbc.png'), axis_limits=axis_limit)
+    params = prepare_system(sample_path, dpoints, 'siband', PTBP_alpha, PTBP_Z)
+    model_test = calc_formation_energy(params)
+    plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
+                                filepath=os.path.join(base_save_path, 'siband.png'), axis_limits=axis_limit)
+
 
 if __name__ == "__main__":
-    from utils import find_structures_with_atom_count
-    path = 'dft.hdf5'
-    alld = list(range(1,6307))
-    datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
-    datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
-    datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
+    #from utils import find_structures_with_atom_count
+    #path = 'dft.hdf5'
+    #alld = list(range(1,6307))
+    #datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
+    #datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
+    #datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
     #plot_normalized_distance_counts(datapoints)
     #plot_distance_distribution(datapoints)
-    plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')
+    #plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')
+
+    #from saveload import load_MSE_from_file
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/64routine/split0')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/64routine/formation_energies/split0')
+    sample_path = 'dft.hdf5'
+    #MSE = load_MSE_from_file(base_path)
+    #plot_errors_bar64(MSE, metric_name='MSE', filepath=os.path.join(save_path, 'MSE.png'))
+
+    axis_limit = (-0.1, 0.65)
+
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(1)
+
+    axis_limit = (-0.02, 0.41)
+
+    sample_path = 'dft_test.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/formation_energies/512test')
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(2)
+
+    axis_limit = (0.12, 0.48)
+
+    sample_path = 'dft.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_only_routine/split0')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_only_routine/formation_energies/split0')
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(3)
+
+    axis_limit = (-0.02, 0.43)
+
+    sample_path = 'dft_test.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_train_512routine/formation_energies/512test')
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(4)
+
+    axis_limit = (-0.02, 0.48)
+
+    sample_path = 'dft.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_only_routine/split0')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_only_routine/formation_energies/split0')
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(5)
+
+    axis_limit = (-0.02, 0.44)
+
+    sample_path = 'dft_test.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test')
+    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
+
+    print(6)
+
+    axis_limit = (-0.02, 0.78)
+
+    sample_path = 'dft.hdf5'
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/extra63')
+    plot_formation_energies_from_saved_params_random_dpoints(base_path, save_path, sample_path, 1234, axis_limit)
+
+    print(7)
+
+    axis_limit = (-0.02, 0.6)
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/extra6364')
+    plot_formation_energies_from_saved_params_random_dpoints(base_path, save_path, sample_path, 12345, axis_limit)
+
+    print(8)
+    """
+    Geo = load_Geo_dset('dft.hdf5', [1])
+    distances = all_distances(Geo, 6.0)
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test/1.png')
+    plot_repulsive_curves(base_path, distances, save_path)
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/MSE.png')
+
+    from saveload import load_MSE_from_file, load_MSE512_from_file
+
+    #MSE = load_MSE_from_file(base_path)
+    MSE = load_MSE512_from_file(base_path)
+
+    plot_errors_512(MSE, filepath=save_path)
+    """

@@ -1,2 +1,0 @@
-{14: Parameter containing:
-tensor([0.9539], requires_grad=True)}

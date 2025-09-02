@@ -1,1 +1,0 @@
-tensor([0.1176, 0.3580], grad_fn=<SubBackward0>)

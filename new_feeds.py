@@ -325,26 +325,26 @@ if __name__ == '__main__':
     """Example usage and simple test of repulsive potentials."""
     from saveload import load_repulsives, load_Geo_dset
     from utils import count_distances
+    torch.set_printoptions(sci_mode=True, precision=4)
+
 
     #base_path = 'logs/63_train'
-    base_path = 'logs/6364_train'
+    from pathlib import Path
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
 
     xTB, PTBP, Gamma = load_repulsives(base_path)
 
     print(count_distances(load_Geo_dset('dft.hdf5', [1]), 8.0))
-    
-    print(xTB.derivative(Tensor([4.467])))
-    print(PTBP.derivative(Tensor([4.467])))
-    print(Gamma.derivative(Tensor([4.467])))
 
     print(xTB.forward(Tensor([4.467])))
     print(PTBP.forward(Tensor([4.467])))
     print(Gamma.forward(Tensor([4.467])))
 
-    print(xTB.forward(Tensor([7.295])))
-    print(PTBP.forward(Tensor([7.295])))
-    print(Gamma.forward(Tensor([7.295])))
-
     print(xTB.forward(Tensor([6.0])))
     print(PTBP.forward(Tensor([6.0])))
     print(Gamma.forward(Tensor([6.0])))
+
+    print(xTB.forward(Tensor([7.295])))
+    print(PTBP.forward(Tensor([7.295])))
+    print(Gamma.forward(Tensor([7.295])))
