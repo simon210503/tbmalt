@@ -240,23 +240,13 @@ def select_random_datapoints(N: int, seed: int, max_dpoint: int = 6306) -> List[
 
 
 if __name__ == "__main__":
-    zahlen =[]
-    for ii in range(1, 6307):
-        Geo = load_Geo_dset("dft.hdf5", [ii])
-        alldist = all_distances(Geo, 8.0)
-        shortest = shortest_distance(alldist)
-        zahlen.append(shortest)
-        print(zahlen)
 
-    indizes_sortiert = sorted(range(len(zahlen)), key=lambda i: zahlen[i])
-    sort = [zahlen[i] for i in indizes_sortiert]
+    Geo = load_Geo_dset("dft.hdf5", [1])
+    z1 = count_distances(Geo, 6.0, 1)
 
-    print("Zahlen:", zahlen)
-    print("Sortierte Indizes:", indizes_sortiert)
-    print("Sortierte Werte:", sort)
-    with open("ergebnisse.txt", "w") as f:
-        f.write(f"Zahlen: {zahlen}\n")
-        f.write(f"Indizes sortiert: {indizes_sortiert}\n")
-            
+    Geo = load_Geo_dset("dft_test.hdf5", [1])
+    z2 = count_distances(Geo, 6.0, 1)
 
+    print(z1)
+    print(z2)
 

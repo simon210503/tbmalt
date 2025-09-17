@@ -343,7 +343,7 @@ def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = N
     ax.plot(r.numpy(), a.detach().numpy(), 'r', label='Gamma')
     ax.plot(r.numpy(), b.detach().numpy(), 'b', label='xTB')
     ax.plot(r.numpy(), c.detach().numpy(), 'g', label='PTBP')
-    ax.plot(r.numpy(), d.detach().numpy(), 'y', label='PBC')
+    ax.plot(r.numpy(), d.detach().numpy(), 'y', label='pbc')
 
 
     if all_distances is not None:
@@ -365,8 +365,8 @@ def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = N
     # Sichtbereich so setzen, dass die Kurven bis zum Rand gehen
     ax.set_xlim(r.min().item(), r.max().item())
 
-    ax.set_xlabel('Distance [bohr]', fontsize=12)
-    ax.set_ylabel('Repulsive energy [Ha]', fontsize=12)
+    ax.set_xlabel('Distance [Bohr]', fontsize=12)
+    ax.set_ylabel('Repulsive Potential [Ha]', fontsize=12)
     ax.tick_params(axis='both', which='major', labelsize=10)
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(True)
@@ -390,7 +390,7 @@ def plot_repulsives_relaxed_w_distances(log_path: str, save_dir: str) -> None:
     os.makedirs(save_dir, exist_ok=True)
     for ii in range(1, 7):
         Geometry = load_Geo_dset('dft.hdf5', [ii])
-        distances = all_distances(Geometry, 8.0)
+        distances = all_distances(Geometry, 6.0)
         file_name = f"{ii}.png"
         save_path = os.path.join(save_dir, file_name)
         plot_repulsive_curves(log_path, distances, save_path)
@@ -486,9 +486,9 @@ def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list
     bins = np.arange(3.5, max_cutoff + bin_width, bin_width)
 
     plt.figure(figsize=(8,5))
-    plt.hist(dist1.numpy(), bins=bins, alpha=0.5, density=True, label="63", color='blue', edgecolor='black')
-    plt.hist(dist2.numpy(), bins=bins, alpha=0.5, density=True, label="64", color='green', edgecolor='black')
-    plt.hist(dist3.numpy(), bins=bins, alpha=0.5, density=True, label="65", color='red', edgecolor='black')
+    plt.hist(dist1.numpy(), bins=bins, alpha=0.5, density=True, label="Vacancies", color='blue', edgecolor='black')
+    plt.hist(dist2.numpy(), bins=bins, alpha=0.5, density=True, label="Perfect/MD", color='green', edgecolor='black')
+    plt.hist(dist3.numpy(), bins=bins, alpha=0.5, density=True, label="Interstitials", color='red', edgecolor='black')
 
     plt.xlabel("Distance [bohr]")
     plt.ylabel("Distribution of distances")
@@ -631,15 +631,16 @@ def plot_formation_energies_from_saved_params_random_dpoints(base_path, base_sav
 
 
 if __name__ == "__main__":
-    #from utils import find_structures_with_atom_count
-    #path = 'dft.hdf5'
-    #alld = list(range(1,6307))
-    #datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
-    #datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
-    #datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
+    """
+    from utils import find_structures_with_atom_count
+    path = 'dft.hdf5'
+    alld = list(range(1,6307))
+    datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
+    datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
+    datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
     #plot_normalized_distance_counts(datapoints)
     #plot_distance_distribution(datapoints)
-    #plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')
+    plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')
 
     #from saveload import load_MSE_from_file
     base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/64routine/split0')
@@ -647,7 +648,6 @@ if __name__ == "__main__":
     sample_path = 'dft.hdf5'
     #MSE = load_MSE_from_file(base_path)
     #plot_errors_bar64(MSE, metric_name='MSE', filepath=os.path.join(save_path, 'MSE.png'))
-
     axis_limit = (-0.1, 0.65)
 
     plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
@@ -721,7 +721,6 @@ if __name__ == "__main__":
     plot_formation_energies_from_saved_params_random_dpoints(base_path, save_path, sample_path, 12345, axis_limit)
 
     print(8)
-    """
     Geo = load_Geo_dset('dft.hdf5', [1])
     distances = all_distances(Geo, 6.0)
 
@@ -739,3 +738,15 @@ if __name__ == "__main__":
 
     plot_errors_512(MSE, filepath=save_path)
     """
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/repulsives')
+    plot_repulsives_relaxed_w_distances(base_path, save_path)
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_train_512routine/formation_energies/512test')
+    plot_repulsives_relaxed_w_distances(base_path, save_path)
+
+    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
+    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test')
+    plot_repulsives_relaxed_w_distances(base_path, save_path)
