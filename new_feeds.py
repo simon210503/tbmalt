@@ -8,9 +8,9 @@ from tbmalt.ml import Feed
 
 class xTBRepulsive(Feed):
      
-    """Repulsive in form of the xTB-Repulsive.
+    """Repulsive potential in form of the xTB-Repulsive.
 
-    Computes the repulsive energy term (E_rep) between atoms A and B.
+    Computes the repulsive potential term (V_rep) between atoms A and B.
 
     This expression is commonly used in semiempirical quantum chemical methods to model 
     the short-range repulsive interaction between atoms. The energy is calculated as:
@@ -21,7 +21,7 @@ class xTBRepulsive(Feed):
     - Z_A^eff, Z_B^eff: Effective nuclear charges of atoms A and B
     - R_AB: Distance between atoms A and B
     - α_A, α_B: Element-specific repulsion parameters for atoms A and B
-    - k_f: Empirical exponent controlling the distance dependence of the repulsion
+    - k_f: Exponent controlling the distance dependence of the repulsion
 
     Arguments:
         coefficients: List containing important parameters
@@ -88,9 +88,9 @@ class xTBRepulsive(Feed):
     
 class PTBPRepulsive(Feed):
      
-    """Repulsive in form of the PTBP-Repulsive.
+    """Repulsive potential in form of the PTBP-Repulsive.
 
-    The repulsive is calculated as:
+    The repulsive potential is calculated as:
 
         E_rep = (Z_A^eff * Z_B^eff / R_AB) * (1 - erf(R_AB / sqrt(α_A^2 + α_B^2)))
 
@@ -319,32 +319,3 @@ def pairwise_repulsive(Geometry, alpha, Z, Repulsive, cutoff):
                                          species_pair[1].item()))
              ])
     return Dict
-
-
-if __name__ == '__main__':
-    """Example usage and simple test of repulsive potentials."""
-    from saveload import load_repulsives, load_Geo_dset
-    from utils import count_distances
-    torch.set_printoptions(sci_mode=True, precision=4)
-
-
-    #base_path = 'logs/63_train'
-    from pathlib import Path
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
-
-    xTB, PTBP, Gamma = load_repulsives(base_path)
-
-    print(count_distances(load_Geo_dset('dft.hdf5', [1]), 8.0))
-
-    print(xTB.forward(Tensor([4.467])))
-    print(PTBP.forward(Tensor([4.467])))
-    print(Gamma.forward(Tensor([4.467])))
-
-    print(xTB.forward(Tensor([6.0])))
-    print(PTBP.forward(Tensor([6.0])))
-    print(Gamma.forward(Tensor([6.0])))
-
-    print(xTB.forward(Tensor([7.295])))
-    print(PTBP.forward(Tensor([7.295])))
-    print(Gamma.forward(Tensor([7.295])))

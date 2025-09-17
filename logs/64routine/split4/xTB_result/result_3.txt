@@ -1,0 +1,7 @@
+{'Geodset': Geometry(Si65, Si65, ..., Si63, Si65, pbc=[True, True, True]), 'GeoSi64': Geometry(Si64, pbc=[True, True, True]), 'formation_energy': tensor([0.1680, 0.1637, 0.1272,  ..., 0.1770, 0.1620, 0.3025]), 'elec_energy_defects': tensor([-89.5014, -89.4358, -88.1807,  ..., -86.5755, -86.4639, -89.6618]), 'elec_energy_Si64': -88.2635544138, 'alpha': {14: Parameter containing:
+tensor([0.9620], requires_grad=True)}, 'Z': {14: Parameter containing:
+tensor([13.2034], requires_grad=True)}, 'repulsive_feed': PairwiseRepulsiveEnergyFeed(
+  (repulsive_feeds): ModuleDict(
+    ((14, 14)): xTBRepulsive()
+  )
+)}

@@ -165,7 +165,7 @@ def prepare_system(
 
 def calc_formation_energy(params: dict) -> Tensor:
     """
-    Compute formation energy using prepared system parameters.
+    Computes DFTB formation energy using prepared system parameters.
 
     The formation energy is calculated by combining electronic and repulsive energies
     for defect structures and the reference Si64 crystal.

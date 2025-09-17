@@ -77,6 +77,9 @@ def plot_formation_energies_new(
     Optionally, set symmetric axis limits.
     """
     def to_numpy(x):
+        """
+        Changes lists and tensors into numpy arrays.
+        """
         if x is None:
             return np.array([])
         if isinstance(x, torch.Tensor):
@@ -318,7 +321,7 @@ def plot_errors_512(errors: list[float], metric_name: str = "MSE", filepath: str
 
 def plot_repulsive_curves(base_path: str, all_distances: list[Tensor] | None = None, save_path: str | None = None) -> None:
     """
-    Plot repulsive energy curves for different models (xTB, PTBP, Gamma, PBC).
+    Plot repulsive energy curves for different models (xTB, PTBP, Gamma, PBC). 
 
     Args:
         base_path (str): Path to load trained repulsives.
@@ -397,6 +400,15 @@ def plot_repulsives_relaxed_w_distances(log_path: str, save_dir: str) -> None:
 
 
 def plot_distance_counts(datapoints: list[int], save_path: str = None) -> None:
+    """
+    (OLD)
+    Plots cumulative amount of distances occuring in given datapoints.
+
+    Args:
+        datapoints (list[int]): Datapoints for which the cumulative amount of distances
+                                occuring will be plotted
+        save_path (str): File to save the generated plot.
+    """
     cutoffs = torch.arange(0, 11, 0.1)
     plt.figure(figsize=(7,5))
 
@@ -419,6 +431,15 @@ def plot_distance_counts(datapoints: list[int], save_path: str = None) -> None:
 
 
 def plot_normalized_distance_counts(datapoints: list[int], save_path: str = None) -> None:
+    """
+    (OLD)
+    Plots normaliezd, cumulative amount of distances occuring in given datapoints.
+
+    Args:
+        datapoints (list[int]): Datapoints for which the cumulative amount of distances
+                                occuring will be plotted
+        save_path (str): File to save the generated plot.
+    """
     cutoffs = torch.arange(0, 11, 0.1)
     plt.figure(figsize=(7,5))
 
@@ -443,6 +464,14 @@ def plot_normalized_distance_counts(datapoints: list[int], save_path: str = None
 
 
 def plot_distance_distribution(datapoints: list[int], save_path: str = None) -> None:
+    """
+    Plots the distance distribution as a histogram for a given amount of datapoints
+
+    Args:
+        datapoints (list[int]): Datapoints for which the distance distribution plotted
+                                (in one histogram)
+        save_path (str): File to save the generated plot.
+    """
     all_distances_flat = []
 
     for dp in datapoints:
@@ -469,8 +498,27 @@ def plot_distance_distribution(datapoints: list[int], save_path: str = None) -> 
 def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list3: list[int],
                                         max_cutoff: float = 10.0, bin_width: float = 0.1,
                                         save_path: str = None) -> None:
+    """
+    Plots the distance distribution as three histograms in one graph for three sets of datapoints
+
+    Args:
+        list1, list2, list3 (list[int]): Datapoints for which the distance distribution plotted
+                                (in one histogram)
+        max_cutoff (float): maximum distance, up to which distances in the geometries should be determined
+        bin_width (float): width of the histogram segments
+        save_path (str): File to save the generated plot.
+    """
 
     def gather_distances(datapoints: list[int]) -> torch.Tensor:
+        """
+        Collects all distances occuring in a list of datapoints
+
+        Args:
+            datapoints (list[int]): List of datapoints to be analysed
+
+        Returns:
+            distances (tensor): a flat tensor that contains all distances
+        """
         all_dists = []
         for dp in datapoints:
             Geometry = load_Geo_dset('dft.hdf5', [dp])
@@ -502,6 +550,16 @@ def plot_distance_distributions_aligned(list1: list[int], list2: list[int], list
     plt.close()
 
 def plot_formation_energies_from_saved_params(base_path, base_save_path, sample_path, axis_limit):
+    """
+    Plots the formation energy from log files for all five repulsive potentials.
+    All plots will use a symmetric axis scaling.
+
+    Args:
+        base_path (str): Path which contains the log files
+        base_save_path (str): Path, where plots should be saved
+        sample_path (str): hdf5 file, that contains the geometries of the datapoints
+        axis_limit (tuple(int, int)): minimum and maximum of x and y axis for the plot
+    """
     Gamma_alpha = load_parameters(f'{base_path}/Gamma_result/result_8.txt')
     Gamma_Z = load_parameters(f'{base_path}/Gamma_result/result_9.txt')
     xTB_alpha = load_parameters(f'{base_path}/xTB_result/result_8.txt')
@@ -514,15 +572,15 @@ def plot_formation_energies_from_saved_params(base_path, base_save_path, sample_
     # Beispielhafte Funktion, um die geladenen Werte zu verpacken
     def wrap_as_dict(value: float | list[float], key: int = 14) -> dict[int, Parameter]:
         """
-        Verpackt einen Wert oder eine Liste in das gewünschte Format:
+        Transforms a list or a float into a dictionary fitting the format used for repulsives:
         {14: Parameter(Tensor([...]), requires_grad=True)}
 
         Args:
-            value (float | list[float]): Eingabewert(e).
-            key (int): Schlüssel des Dictionaries.
+            value (float | list[float]): Input value(s)
+            key (int): key for the dictionary
 
         Returns:
-            dict[int, Parameter]: Dictionary mit dem Schlüssel und Parameter.
+            dict[int, Parameter]: dictionary with key and value
         """
         if isinstance(value, list):
             tensor = torch.tensor(value, dtype=torch.float32)
@@ -566,6 +624,17 @@ def plot_formation_energies_from_saved_params(base_path, base_save_path, sample_
 
 
 def plot_formation_energies_from_saved_params_random_dpoints(base_path, base_save_path, sample_path, seed, axis_limit):
+    """
+    Plots the formation energy of random datapoints from log files for all five repulsive potentials.
+    All plots will use a symmetric axis scaling.
+
+    Args:
+        base_path (str): Path which contains the log files
+        base_save_path (str): Path, where plots should be saved
+        sample_path (str): hdf5 file, that contains the geometries of the datapoints
+        seed (int): seed used for choice of datapoints
+        axis_limit (tuple(int, int)): minimum and maximum of x and y axis for the plot
+    """
     Gamma_alpha = load_parameters(f'{base_path}/Gamma_result/result_8.txt')
     Gamma_Z = load_parameters(f'{base_path}/Gamma_result/result_9.txt')
     xTB_alpha = load_parameters(f'{base_path}/xTB_result/result_8.txt')
@@ -628,125 +697,3 @@ def plot_formation_energies_from_saved_params_random_dpoints(base_path, base_sav
     model_test = calc_formation_energy(params)
     plot_formation_energies_new(dpoints, sample_path, target_test, model_test, 
                                 filepath=os.path.join(base_save_path, 'siband.png'), axis_limits=axis_limit)
-
-
-if __name__ == "__main__":
-    """
-    from utils import find_structures_with_atom_count
-    path = 'dft.hdf5'
-    alld = list(range(1,6307))
-    datapoints1 = find_structures_with_atom_count(path, alld, 63).tolist()
-    datapoints2 = find_structures_with_atom_count(path, alld, 64).tolist()
-    datapoints3 = find_structures_with_atom_count(path, alld, 65).tolist()
-    #plot_normalized_distance_counts(datapoints)
-    #plot_distance_distribution(datapoints)
-    plot_distance_distributions_aligned(datapoints1, datapoints2, datapoints3, save_path = 'plots/distance_distribution.png')
-
-    #from saveload import load_MSE_from_file
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/64routine/split0')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/64routine/formation_energies/split0')
-    sample_path = 'dft.hdf5'
-    #MSE = load_MSE_from_file(base_path)
-    #plot_errors_bar64(MSE, metric_name='MSE', filepath=os.path.join(save_path, 'MSE.png'))
-    axis_limit = (-0.1, 0.65)
-
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(1)
-
-    axis_limit = (-0.02, 0.41)
-
-    sample_path = 'dft_test.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/formation_energies/512test')
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(2)
-
-    axis_limit = (0.12, 0.48)
-
-    sample_path = 'dft.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_only_routine/split0')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_only_routine/formation_energies/split0')
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(3)
-
-    axis_limit = (-0.02, 0.43)
-
-    sample_path = 'dft_test.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_train_512routine/formation_energies/512test')
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(4)
-
-    axis_limit = (-0.02, 0.48)
-
-    sample_path = 'dft.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_only_routine/split0')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_only_routine/formation_energies/split0')
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(5)
-
-    axis_limit = (-0.02, 0.44)
-
-    sample_path = 'dft_test.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test')
-    plot_formation_energies_from_saved_params(base_path, save_path, sample_path, axis_limit)
-
-    print(6)
-
-    axis_limit = (-0.02, 0.78)
-
-    sample_path = 'dft.hdf5'
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/extra63')
-    plot_formation_energies_from_saved_params_random_dpoints(base_path, save_path, sample_path, 1234, axis_limit)
-
-    print(7)
-
-    axis_limit = (-0.02, 0.6)
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/extra6364')
-    plot_formation_energies_from_saved_params_random_dpoints(base_path, save_path, sample_path, 12345, axis_limit)
-
-    print(8)
-    Geo = load_Geo_dset('dft.hdf5', [1])
-    distances = all_distances(Geo, 6.0)
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test/1.png')
-    plot_repulsive_curves(base_path, distances, save_path)
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/MSE.png')
-
-    from saveload import load_MSE_from_file, load_MSE512_from_file
-
-    #MSE = load_MSE_from_file(base_path)
-    MSE = load_MSE512_from_file(base_path)
-
-    plot_errors_512(MSE, filepath=save_path)
-    """
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/512routine/repulsives')
-    plot_repulsives_relaxed_w_distances(base_path, save_path)
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/63_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/63_train_512routine/formation_energies/512test')
-    plot_repulsives_relaxed_w_distances(base_path, save_path)
-
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/6364_train_512routine/512test')
-    save_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/plots/6364_train_512routine/formation_energies/512test')
-    plot_repulsives_relaxed_w_distances(base_path, save_path)

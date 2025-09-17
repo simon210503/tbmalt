@@ -168,6 +168,14 @@ def load_repulsives(base_path: str, cutoff: float = 6.0) -> Tuple[xTBRepulsive, 
     return xTB, PTBP, Gamma
 
 def load_MSE_from_file(base_path):
+    """
+    Loads MSE from files for k-fold splitting (k=5)
+
+    Args:
+        base_path (str): Path containing the logs for MSE
+    Returns
+        MSE (list[float]): List containing MSE for the different splits and different repulsive potentials
+    """
 
     MSE = []
     for ii in range(5):
@@ -179,6 +187,14 @@ def load_MSE_from_file(base_path):
     return MSE
 
 def load_MSE512_from_file(base_path):
+    """
+    Loads MSE from files for testing on large supercells
+
+    Args:
+        base_path (str): Path containing the logs for MSE
+    Returns
+        MSE (list[float]): List containing MSE for the different repulsive potentials
+    """
 
     MSE = []
     MSE.append(load_results_from_file(os.path.join(base_path, f'xTB_result/result_10.txt'))[0])
@@ -190,17 +206,13 @@ def load_MSE512_from_file(base_path):
 
 
 def load_testdpoints_from_file(base_path):
+    """
+    Loads testing datapoints from logs
+
+    Args:
+        base_path (str): Path containing the logs of the testing datapoints
+    Returns:
+        datapoints (list[int]): Datapoints used in testing
+    """
     dpoints = load_results_from_file(os.path.join(base_path, 'Gamma_result/result_1.txt'))[0]
     return dpoints
-        
-
-if __name__ == '__main__':
-
-    from pathlib import Path
-    from utils import stringlist_list_converter
-    base_path = Path(r'C:/Users/simon/Desktop/runs_for_thesis/logs/64routine/split3')
-    #zahlen = load_testdpoints_from_file(base_path)
-    #kleiner_gleich_6 = [x for x in zahlen if x <= 6]
-    #print(kleiner_gleich_6)
-
-    print(load_parameters(os.path.join(base_path, 'Gamma_result/result_8.txt')))
